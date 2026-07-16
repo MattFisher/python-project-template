@@ -9,8 +9,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: template-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   render:
+    name: Render and validate both variants
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

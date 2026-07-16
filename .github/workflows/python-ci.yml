@@ -15,8 +15,12 @@ on:
         type: string
         default: "src"
 
+permissions:
+  contents: read
+
 jobs:
   ci:
+    name: Lint, type-check, and test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,7 +37,9 @@ jobs:
         run: uv sync --locked
 
       - name: Mypy
-        run: uv run mypy ${{ inputs.mypy-paths }}
+        env:
+          MYPY_PATHS: ${{ inputs.mypy-paths }} # via env to avoid run-step template injection
+        run: uv run mypy $MYPY_PATHS
 
       - name: Pytest
         run: uv run pytest
