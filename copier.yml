@@ -1,6 +1,13 @@
 _subdirectory: template
 _min_copier_version: "9.0.0"
 
+# Trim block-tag newlines so conditionals don't leave stray blank lines in
+# rendered text/markdown (keeps mdformat happy on a fresh scaffold).
+_envops:
+  trim_blocks: true
+  lstrip_blocks: true
+  keep_trailing_newline: true
+
 _message_after_copy: |
   Project "{{ project_name }}" scaffolded.
 
