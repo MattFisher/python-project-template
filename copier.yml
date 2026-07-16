@@ -1,0 +1,61 @@
+_subdirectory: template
+_min_copier_version: "9.0.0"
+
+_message_after_copy: |
+  Project "{{ project_name }}" scaffolded.
+
+  Next steps:
+    cd {{ project_name }}
+    uv sync
+    uv run pre-commit install
+    git init && git add -A && git commit -m "Initial commit"
+
+project_name:
+  type: str
+  help: Project / repo name in kebab-case, e.g. "my-tool"
+
+project_description:
+  type: str
+  help: One-line description of the project
+
+project_kind:
+  type: str
+  help: An installable library, or a standalone app you run via `uv run`?
+  choices:
+    "Application (not packaged; run via `uv run`)": app
+    "Library (packaged with hatchling, publishable to PyPI)": library
+  default: app
+
+python_version:
+  type: str
+  help: Primary Python version (used for .python-version, CI, and the requires-python floor)
+  default: "3.12"
+
+use_coverage_gate:
+  type: bool
+  help: Fail CI when test coverage drops below a floor?
+  default: false
+
+coverage_floor:
+  type: int
+  help: Minimum coverage percentage
+  default: 60
+  when: "{{ use_coverage_gate }}"
+
+github_owner:
+  type: str
+  default: MattFisher
+
+author_name:
+  type: str
+  default: Matt Fisher
+
+author_email:
+  type: str
+  default: m@ttfisher.com
+
+# Derived, not prompted.
+package_name:
+  type: str
+  default: "{{ project_name | replace('-', '_') }}"
+  when: false

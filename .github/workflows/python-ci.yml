@@ -1,0 +1,46 @@
+name: Python CI
+
+# Reusable CI for MattFisher Python projects: uv install, mypy, pytest, and the
+# shared pre-commit stack (ruff + zizmor + mdformat). Consumers call it from a
+# thin workflow — see the scaffolded `.github/workflows/ci.yml`.
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to run against.
+        type: string
+        default: "3.12"
+      mypy-paths:
+        description: Paths to type-check with mypy.
+        type: string
+        default: "src"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Mypy
+        run: uv run mypy ${{ inputs.mypy-paths }}
+
+      - name: Pytest
+        run: uv run pytest
+
+      - name: Pre-commit (ruff, zizmor, mdformat)
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        env:
+          GH_TOKEN: ${{ github.token }} # lets zizmor's online checks query the GitHub API
+        with:
+          extra_args: --all-files --hook-stage manual

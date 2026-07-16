@@ -1,0 +1,43 @@
+name: Template CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: "3.12"
+
+      - name: Render both variants and check them
+        run: |
+          set -euo pipefail
+          for kind in app library; do
+            uvx copier copy --trust --defaults \
+              --data project_name="sample-$kind" \
+              --data project_description="A sample $kind" \
+              --data project_kind="$kind" \
+              . "/tmp/out-$kind"
+            python3 -c "import tomllib; tomllib.load(open('/tmp/out-$kind/pyproject.toml','rb'))"
+            test -f "/tmp/out-$kind/.pre-commit-config.yaml"
+            test -f "/tmp/out-$kind/.github/workflows/ci.yml"
+            test -f "/tmp/out-$kind/.claude/hooks/session-start.sh"
+          done
+          # library-only files present for library, absent for app
+          test -f /tmp/out-library/RELEASING.md
+          test -f /tmp/out-library/.github/workflows/publish.yml
+          test ! -e /tmp/out-app/RELEASING.md
+          test ! -e /tmp/out-app/.github/workflows/publish.yml
+          echo "Both variants rendered and validated."
