@@ -6,6 +6,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7 # don't adopt a release until it's had time to be vetted/yanked
     groups:
       actions:
         patterns: ["*"]
