@@ -11,11 +11,7 @@ uv run pytest
 uv run mypy src
 ```
 
-Linting (ruff, [zizmor](https://docs.zizmor.sh/), mdformat) runs via
-[pre-commit](https://pre-commit.com); CI runs the same stack plus mypy and
-pytest via the shared
-[`python-ci`](https://github.com/{{ github_owner }}/python-project-template)
-reusable workflow.
+Linting (ruff, [zizmor](https://docs.zizmor.sh/), mdformat) runs via [pre-commit](https://pre-commit.com); CI runs the same stack plus mypy and pytest via the shared [`python-ci`](https://github.com/{{ github_owner }}/python-project-template) reusable workflow.
 {% if project_kind == "library" %}
 
 ## Releasing

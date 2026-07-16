@@ -2,36 +2,29 @@
 
 ## One-time setup: PyPI trusted publishing
 
-Publishing runs from GitHub Actions with no API tokens, via
-[trusted publishing](https://docs.pypi.org/trusted-publishers/).
+Publishing runs from GitHub Actions with no API tokens, via [trusted publishing](https://docs.pypi.org/trusted-publishers/).
 
-1. On [pypi.org](https://pypi.org) → _Your account_ → _Publishing_ → **Add a
-   pending publisher**:
+1. On [pypi.org](https://pypi.org) → _Your account_ → _Publishing_ → **Add a pending publisher**:
    - PyPI project name: `{{ project_name }}`
    - Owner: `{{ github_owner }}`
    - Repository name: `{{ project_name }}`
    - Workflow name: `publish.yml`
    - Environment name: `pypi`
-1. In the GitHub repo: _Settings → Environments → New environment_ → name it
-   `pypi` (optionally add yourself as a required reviewer so releases need a
-   manual approval click).
+2. In the GitHub repo: _Settings → Environments → New environment_ → name it `pypi` (optionally add yourself as a required reviewer so releases need a manual approval click).
 
-The first tagged release creates the PyPI project and converts the pending
-publisher into a normal one.
+The first tagged release creates the PyPI project and converts the pending publisher into a normal one.
 
 ## Each release
 
-1. Bump `__version__` in `src/{{ package_name }}/__init__.py` (single source of
-   truth — `pyproject.toml` reads it).
-1. Move the `## [Unreleased]` entries in `CHANGELOG.md` under a new
-   `## [X.Y.Z] - YYYY-MM-DD` heading.
-1. Commit, then tag and push:
+1. Bump `__version__` in `src/{{ package_name }}/__init__.py` (single source of truth — `pyproject.toml` reads it).
+2. Move the `## [Unreleased]` entries in `CHANGELOG.md` under a new `## [X.Y.Z] - YYYY-MM-DD` heading.
+3. Commit, then tag and push:
    ```bash
    git tag vX.Y.Z
    git push origin main vX.Y.Z
    ```
-1. The `publish.yml` workflow builds the sdist/wheel and uploads to PyPI.
-1. Create a GitHub release from the tag, pasting the changelog section.
+4. The `publish.yml` workflow builds the sdist/wheel and uploads to PyPI.
+5. Create a GitHub release from the tag, pasting the changelog section.
 
 ## Sanity checks before tagging
 
