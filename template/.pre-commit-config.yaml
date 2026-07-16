@@ -1,10 +1,34 @@
+# Latest Python version we support — keeps hook envs consistent.
+default_language_version:
+  python: python3.12
+
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-json
+      - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: c59bba8fb259db0fec2bbb77ad8ba51ea7341b56 # v0.15.20
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: "0.11.29"
+    hooks:
+      - id: uv-lock # keep uv.lock in sync with pyproject.toml
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint # GitHub Actions correctness (complements zizmor's security audits)
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: e3eebf65325ccc992422292cb7a4baee967cf815 # v1.26.1
@@ -16,18 +40,21 @@ repos:
       # restricted networks). Split into two hooks so local runs always get
       # zizmor's offline coverage (most of its ruleset) without depending on
       # network access, while CI - which has real network + a real GH_TOKEN -
-      # additionally runs the online-only audits via `--hook-stage manual`
-      # (see the Pre-commit step in test.yml).
+      # additionally runs the online-only audits via `--hook-stage manual`.
+      # `--persona=auditor` is zizmor's most thorough mode; findings at any
+      # severity fail the run.
       - id: zizmor
         name: zizmor (offline checks)
-        args: [--no-online-audits]
+        args: [--no-online-audits, --persona=auditor]
       - id: zizmor
         name: zizmor (online checks - GitHub API, CI only)
+        args: [--persona=auditor]
         stages: [manual]
 
   - repo: https://github.com/executablebooks/mdformat
     rev: 82912cdaea4fb830f751504486a7879c70526547 # 1.0.0
     hooks:
       - id: mdformat
+        # Formatting config (wrap, number, ...) lives in .mdformat.toml.
         additional_dependencies:
           - mdformat-gfm # padded/aligned tables + GFM extensions (task lists, strikethrough)
