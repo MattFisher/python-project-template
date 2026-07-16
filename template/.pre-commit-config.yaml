@@ -30,6 +30,16 @@ repos:
     hooks:
       - id: actionlint # GitHub Actions correctness (complements zizmor's security audits)
 
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck # lints shell scripts (e.g. .claude/hooks/session-start.sh)
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.48.0
+    hooks:
+      - id: typos # spell-check code, comments, and docs
+
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: e3eebf65325ccc992422292cb7a4baee967cf815 # v1.26.1
     hooks:

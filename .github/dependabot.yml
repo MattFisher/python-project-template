@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Keep the SHA-pinned actions in this repo's own workflows (and the reusable
+  # python-ci.yml that consumers call) current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
