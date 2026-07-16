@@ -33,6 +33,14 @@ project_kind:
     "Library (packaged with hatchling, publishable to PyPI)": library
   default: app
 
+publish_to_pypi:
+  type: bool
+  help: Publish to PyPI on tag? (adds publish.yml + RELEASING.md via trusted publishing)
+  # Apps are never published; libraries usually are, but some are packaged only
+  # for local install (e.g. an eval), so it's asked separately.
+  default: "{{ project_kind == 'library' }}"
+  when: "{{ project_kind == 'library' }}"
+
 python_version:
   type: str
   help: Primary Python version (used for .python-version, CI, and the requires-python floor)
