@@ -28,9 +28,9 @@ dev = [
     "pytest>=8.0.0",
     "mypy>=1.10",
     "pre-commit>=4.0.0",
-{% if use_coverage_gate -%}
+{% if use_coverage_gate %}
     "pytest-cov>=7.0.0",
-{% endif -%}
+{% endif %}
 ]
 
 {% if project_kind == "library" -%}
