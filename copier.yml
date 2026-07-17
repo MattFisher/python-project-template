@@ -48,7 +48,9 @@ python_version:
 
 use_coverage_gate:
   type: bool
-  help: Fail CI when test coverage drops below a floor?
+  # Coverage is always measured and reported; this only controls whether a
+  # drop below `coverage_floor` fails the build.
+  help: Also FAIL the build when coverage drops below a floor?
   default: false
 
 coverage_floor:
