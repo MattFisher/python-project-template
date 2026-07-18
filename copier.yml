@@ -71,6 +71,14 @@ author_email:
   type: str
   default: m@ttfisher.com
 
+license:
+  type: str
+  help: License for the project
+  choices:
+    "MIT (permissive open source; writes a LICENSE file)": MIT
+    "Proprietary (all rights reserved; no LICENSE file)": Proprietary
+  default: MIT
+
 # Derived, not prompted.
 package_name:
   type: str

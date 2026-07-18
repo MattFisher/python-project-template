@@ -13,7 +13,7 @@ version = "0.1.0"
 {% endif -%}
 description = "{{ project_description }}"
 readme = "README.md"
-license = "MIT"
+license = "{{ 'LicenseRef-Proprietary' if license == 'Proprietary' else license }}"
 authors = [{ name = "{{ author_name }}", email = "{{ author_email }}" }]
 requires-python = ">={{ python_version }}"
 dependencies = []
