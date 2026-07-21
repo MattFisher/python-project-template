@@ -48,9 +48,20 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      # We cache pre-commit's hook environments ourselves rather than using
+      # pre-commit/action: that action keys its cache on env.pythonLocation,
+      # which only setup-python populates. With setup-uv the segment is empty,
+      # collapsing the key to the config hash alone — shared across every
+      # Python version AND OS in a caller's matrix. A macOS job then restores a
+      # Linux-built cache (/home/runner paths) → InvalidManifestError. Keying on
+      # runner.os + the Python version keeps each matrix leg isolated.
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-3|${{ runner.os }}|${{ inputs.python-version }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: Pre-commit (ruff, zizmor, mdformat)
-        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
         env:
           GH_TOKEN: ${{ github.token }} # lets zizmor's online checks query the GitHub API
-        with:
-          extra_args: --all-files --hook-stage manual
+        run: uv run pre-commit run --show-diff-on-failure --color=always --all-files --hook-stage manual
