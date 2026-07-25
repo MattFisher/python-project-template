@@ -53,6 +53,21 @@ use_coverage_gate:
   help: Also FAIL the build when coverage drops below a floor?
   default: false
 
+use_frontend:
+  type: bool
+  # Adds Biome (lint + format, one Rust binary — the TS analogue of ruff) to
+  # the pre-commit stack, and a second CI job calling the shared node-ci
+  # workflow for type-check and build. Lint/format ride pre-commit rather than
+  # node-ci so a hybrid repo doesn't pay for a second Node job to get them.
+  help: Does this project have a TypeScript/JavaScript frontend?
+  default: false
+
+frontend_dir:
+  type: str
+  help: Directory holding package.json (use "." if the frontend is the whole repo)
+  default: frontend
+  when: "{{ use_frontend }}"
+
 use_typos:
   type: bool
   # The typos hook defaults to --write-changes, so it edits files rather than

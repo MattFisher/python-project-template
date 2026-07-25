@@ -1,0 +1,94 @@
+name: Node CI
+
+# Reusable CI for the TypeScript/JavaScript side of MattFisher projects:
+# install, type-check, and build. Consumers call it from a thin workflow — see
+# the scaffolded `.github/workflows/ci.yml`.
+#
+# Lint and format are deliberately NOT here. Biome runs as a pre-commit hook,
+# and `python-ci.yml` already runs the whole pre-commit stack, so a hybrid repo
+# gets TS lint/format without paying for a second Node job. This workflow only
+# covers the parts that genuinely need the project's own dependencies
+# installed.
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node version to run against.
+        type: string
+        default: "22"
+      runs-on:
+        description: Runner to execute on (lets callers matrix over OSes).
+        type: string
+        default: ubuntu-latest
+      working-directory:
+        description: >
+          Directory holding package.json. Defaults to the repo root; set to
+          e.g. "frontend" for a Django/Vite repo where the frontend is a
+          subdirectory.
+        type: string
+        default: "."
+      package-manager:
+        description: One of yarn, npm, or pnpm.
+        type: string
+        default: yarn
+      run-build:
+        description: Run the build script after type-checking.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Type-check and build
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          # Listing all three lockfile names keeps one workflow working for
+          # every package manager; only the project's own file will match.
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/yarn.lock
+            ${{ inputs.working-directory }}/package-lock.json
+            ${{ inputs.working-directory }}/pnpm-lock.yaml
+
+      # Honours the `packageManager` field in package.json, which is how Yarn
+      # Berry and pnpm pin themselves.
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        env:
+          PM: ${{ inputs.package-manager }} # via env to avoid run-step template injection
+        run: |
+          case "$PM" in
+            yarn) yarn install --immutable ;;
+            npm)  npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *)    echo "::error::unsupported package-manager: $PM"; exit 1 ;;
+          esac
+
+      - name: Type-check
+        env:
+          PM: ${{ inputs.package-manager }}
+        run: |
+          "$PM" run typecheck
+
+      - name: Build
+        if: ${{ inputs.run-build }}
+        env:
+          PM: ${{ inputs.package-manager }}
+        run: |
+          "$PM" run build

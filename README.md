@@ -12,6 +12,9 @@ standard so the repos don't drift:
   **pytest**
 - Shared **`python-ci`** reusable workflow (`uv sync` → mypy → pytest →
   pre-commit), so every repo's CI is a three-line caller
+- Optional TypeScript/JavaScript side: **Biome** (lint + format) in the
+  pre-commit stack, plus a shared **`node-ci`** workflow for type-check and
+  build
 - **Keep a Changelog** `CHANGELOG.md`; libraries also get PyPI trusted
   publishing (`publish.yml` + `RELEASING.md`)
 - A Claude Code `SessionStart` hook that pre-warms the toolchain
@@ -23,8 +26,8 @@ uvx copier copy gh:MattFisher/python-project-template my-new-project
 ```
 
 You'll be asked for the name, description, whether it's an app or a library,
-Python version, whether to enable a coverage gate, and whether to run the
-typos spell-checker.
+Python version, whether to enable a coverage gate, whether the project has a
+TypeScript/JavaScript frontend, and whether to run the typos spell-checker.
 
 ### Turning off `typos`
 
@@ -70,6 +73,37 @@ jobs:
     with:
       python-version: "3.12"
 ```
+
+### The TypeScript side
+
+Answer yes to `use_frontend` and the scaffold also gets `biome.json`, a Biome
+hook in the pre-commit stack, and a second CI job calling
+[`node-ci.yml`](.github/workflows/node-ci.yml):
+
+```yaml
+  frontend:
+    uses: MattFisher/python-project-template/.github/workflows/node-ci.yml@v1
+    with:
+      working-directory: "frontend"
+```
+
+`working-directory` is the point of the input: it defaults to the repo root
+for a standalone package, and takes a subdirectory for a hybrid repo (a Django
+app at the root with a Vite frontend under `frontend/`). `node-ci` also accepts
+`node-version`, `package-manager` (yarn/npm/pnpm — it runs `corepack enable`,
+so Yarn Berry and pnpm pin themselves through `packageManager` in
+package.json), and `run-build`.
+
+Note what `node-ci` does *not* do: lint and format. Biome runs as a pre-commit
+hook, and `python-ci` already runs the whole pre-commit stack, so a hybrid repo
+gets TS lint/format without paying for a second Node job. `node-ci` covers only
+the parts that need the project's own dependencies installed.
+
+Biome is chosen for the same reason as ruff on the Python side — one fast Rust
+binary doing both jobs, one config file, no plugin ecosystem to keep in sync.
+The trade-off is that it has no type-aware linting; rules like
+`no-floating-promises` need typescript-eslint. `tsc --noEmit` under `strict`
+covers most of that ground.
 
 ## Versioning
 

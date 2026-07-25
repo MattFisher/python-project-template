@@ -57,3 +57,20 @@ jobs:
           ! grep -q "crate-ci/typos" /tmp/out-no-typos/.pre-commit-config.yaml
           python3 -c "import yaml; yaml.safe_load(open('/tmp/out-no-typos/.pre-commit-config.yaml'))"
           echo "typos opt-out honoured."
+
+          # use_frontend adds biome.json, the Biome hook, and the node-ci job
+          uvx copier copy --trust --defaults \
+            --data project_name="sample-frontend" \
+            --data project_description="A sample with a frontend" \
+            --data use_frontend=true \
+            . /tmp/out-frontend
+          test -f /tmp/out-frontend/biome.json
+          grep -q "biomejs/pre-commit" /tmp/out-frontend/.pre-commit-config.yaml
+          grep -q "node-ci.yml" /tmp/out-frontend/.github/workflows/ci.yml
+          python3 -c "import json; json.load(open('/tmp/out-frontend/biome.json'))"
+          python3 -c "import yaml; yaml.safe_load(open('/tmp/out-frontend/.github/workflows/ci.yml'))"
+          # and adds none of it by default
+          test ! -e /tmp/out-app/biome.json
+          ! grep -q "biomejs/pre-commit" /tmp/out-app/.pre-commit-config.yaml
+          ! grep -q "node-ci.yml" /tmp/out-app/.github/workflows/ci.yml
+          echo "frontend variant rendered and validated."

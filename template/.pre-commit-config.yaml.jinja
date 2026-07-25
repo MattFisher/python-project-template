@@ -76,3 +76,14 @@ repos:
         # Formatting config (wrap, number, ...) lives in .mdformat.toml.
         additional_dependencies:
           - mdformat-gfm # padded/aligned tables + GFM extensions (task lists, strikethrough)
+{% if use_frontend %}
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: f6d5e1fa73430779cef768d00c512fa86162fe6e # v2.5.5
+    hooks:
+      # Biome is the TS/JS analogue of ruff: one Rust binary doing both lint
+      # and format, one config file, no plugin ecosystem to keep in sync.
+      # `check` runs both. Rules and formatting live in biome.json.
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@2.5.5"]
+{% endif %}
