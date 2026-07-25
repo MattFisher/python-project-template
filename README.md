@@ -99,6 +99,12 @@ hook, and `python-ci` already runs the whole pre-commit stack, so a hybrid repo
 gets TS lint/format without paying for a second Node job. `node-ci` covers only
 the parts that need the project's own dependencies installed.
 
+`biome.json` excludes `.yarn/**`. Yarn Berry projects commit `.yarn/sdks` and
+`.yarn/releases` (their `.gitignore` un-ignores them), so `useIgnoreFile`
+alone doesn't keep Biome out of Yarn's own vendored code — without the
+exclusion it reformats those files. Add your own exclusions there for any
+generated data the project commits, such as serialised test fixtures.
+
 Biome is chosen for the same reason as ruff on the Python side — one fast Rust
 binary doing both jobs, one config file, no plugin ecosystem to keep in sync.
 The trade-off is that it has no type-aware linting; rules like
