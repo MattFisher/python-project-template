@@ -8,7 +8,8 @@ standard so the repos don't drift:
   `.python-version`
 - **hatchling** build backend for libraries; apps stay `package = false`
 - **pre-commit** stack: ruff (lint + format), [zizmor](https://docs.zizmor.sh/)
-  (Actions security), mdformat — plus **mypy** (always) and **pytest**
+  (Actions security), mdformat, optionally typos — plus **mypy** (always) and
+  **pytest**
 - Shared **`python-ci`** reusable workflow (`uv sync` → mypy → pytest →
   pre-commit), so every repo's CI is a three-line caller
 - **Keep a Changelog** `CHANGELOG.md`; libraries also get PyPI trusted
@@ -22,7 +23,23 @@ uvx copier copy gh:MattFisher/python-project-template my-new-project
 ```
 
 You'll be asked for the name, description, whether it's an app or a library,
-Python version, and whether to enable a coverage gate.
+Python version, whether to enable a coverage gate, and whether to run the
+typos spell-checker.
+
+### Turning off `typos`
+
+Answer no to `use_typos` and the hook is left out of the generated
+`.pre-commit-config.yaml`. Worth doing for projects whose vocabulary the
+checker doesn't know — medical, legal or scientific terms, non-English proper
+nouns — or that commit generated data such as serialised fixtures and
+extraction output.
+
+The hook's own default args are `[--write-changes, --force-exclude]`, so it
+**edits files rather than reporting**. On the wrong corpus that means silent,
+incorrect rewrites: in one repo it renamed `Miliary` (as in miliary
+tuberculosis) to `Military`, `PASH` to `HASH`, and every `...Ser` serializer
+class to `...Set`, alongside ~900 edits inside hex digests. If you want the
+hook but not that behaviour, override its args to just `[--force-exclude]`.
 
 ## Update an existing project when the template changes
 

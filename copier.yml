@@ -53,6 +53,16 @@ use_coverage_gate:
   help: Also FAIL the build when coverage drops below a floor?
   default: false
 
+use_typos:
+  type: bool
+  # The typos hook defaults to --write-changes, so it edits files rather than
+  # reporting. On a corpus heavy with domain vocabulary, proper nouns or
+  # generated data it mostly produces false positives, and the allow-list
+  # needed to keep it quiet grows without end. Off is the right answer for
+  # those projects; on remains the default for ordinary ones.
+  help: Run the typos spell-checker? (say no for medical/legal/scientific vocabulary, or lots of generated data)
+  default: true
+
 coverage_floor:
   type: int
   help: Minimum coverage percentage
