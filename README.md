@@ -111,6 +111,35 @@ The trade-off is that it has no type-aware linting; rules like
 `no-floating-promises` need typescript-eslint. `tsc --noEmit` under `strict`
 covers most of that ground.
 
+## Keeping projects up to date
+
+Scaffolded projects get a `template-update.yml` workflow that runs
+`copier update` weekly (and on demand) and opens a PR when the template's
+*scaffolded files* have changed. Copier does a three-way merge between the old
+template output, the new output, and the project's local edits, so
+customisations survive.
+
+Two things worth knowing about the scope:
+
+- **Reusable workflow changes need no update run.** Consumers pin
+  `python-ci.yml@v1` and `node-ci.yml@v1`, so moving the `v1` tag propagates
+  those immediately. The update workflow exists only for the copied files —
+  `.pre-commit-config.yaml`, `biome.json`, `pyproject.toml` and friends.
+- **It requires `.copier-answers.yml`.** A project adapted by hand rather than
+  scaffolded has no baseline for copier to merge from, and the workflow fails
+  with a message saying so. Adopt the template properly first.
+
+Where copier's merge conflicts it leaves ordinary conflict markers and labels
+the PR. Setting `resolve-conflicts-with-claude: true` (plus an
+`ANTHROPIC_API_KEY` secret) has the Claude Code action attempt them instead.
+It's off by default: copier's merge is deterministic and usually clean, and a
+conflict is often exactly the thing a human should look at.
+
+One GitHub quirk the PR body also mentions: it's opened with the default
+`GITHUB_TOKEN`, and GitHub deliberately does not run workflows on PRs created
+that way. Close and reopen the PR, or push a commit to it, to get CI to run —
+or swap in a PAT or GitHub App token if you want that automatic.
+
 ## Versioning
 
 Tagged `v1.0.0` with a moving `v1`. Generated projects pin the reusable workflow
