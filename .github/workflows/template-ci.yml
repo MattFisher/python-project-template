@@ -46,3 +46,14 @@ jobs:
           test ! -e /tmp/out-app/RELEASING.md
           test ! -e /tmp/out-app/.github/workflows/publish.yml
           echo "Both variants rendered and validated."
+
+          # use_typos defaults on, and answering no drops the hook
+          uvx copier copy --trust --defaults \
+            --data project_name="sample-no-typos" \
+            --data project_description="A sample without the typos hook" \
+            --data use_typos=false \
+            . /tmp/out-no-typos
+          grep -q "crate-ci/typos" /tmp/out-app/.pre-commit-config.yaml
+          ! grep -q "crate-ci/typos" /tmp/out-no-typos/.pre-commit-config.yaml
+          python3 -c "import yaml; yaml.safe_load(open('/tmp/out-no-typos/.pre-commit-config.yaml'))"
+          echo "typos opt-out honoured."
