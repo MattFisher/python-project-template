@@ -39,11 +39,13 @@ repos:
   - repo: https://github.com/crate-ci/typos
     rev: bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
     hooks:
-      # NOTE: this hook's own default args are [--write-changes, --force-exclude],
-      # so it rewrites source rather than reporting. On a corpus full of domain
-      # vocabulary that means silent, wrong identifier renames — drop
-      # --write-changes if you'd rather it only reported.
+      # Report only. The hook's own default args are
+      # [--write-changes, --force-exclude], which rewrite source rather than
+      # reporting it: anything the checker mistakes for a misspelling gets
+      # renamed silently, including identifiers and domain vocabulary. A
+      # correction needs a human to approve it, so --write-changes is dropped.
       - id: typos # spell-check code, comments, and docs
+        args: [--force-exclude]
 
 {% endif %}
   - repo: https://github.com/zizmorcore/zizmor-pre-commit

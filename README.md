@@ -34,12 +34,14 @@ checker doesn't know — medical, legal or scientific terms, non-English proper
 nouns — or that commit generated data such as serialised fixtures and
 extraction output.
 
-The hook's own default args are `[--write-changes, --force-exclude]`, so it
-**edits files rather than reporting**. On the wrong corpus that means silent,
-incorrect rewrites: in one repo it renamed `Miliary` (as in miliary
-tuberculosis) to `Military`, `PASH` to `HASH`, and every `...Ser` serializer
-class to `...Set`, alongside ~900 edits inside hex digests. If you want the
-hook but not that behaviour, override its args to just `[--force-exclude]`.
+Note the hook is configured **report-only**, with `args: [--force-exclude]`.
+Its own defaults are `[--write-changes, --force-exclude]`, which edit files
+rather than reporting: on the wrong corpus that means silent, incorrect
+rewrites. In one repo it renamed `Miliary` (as in miliary tuberculosis) to
+`Military`, `PASH` to `HASH`, and every `...Ser` serializer class to `...Set`,
+alongside ~900 edits inside hex digests — all committed before anyone noticed.
+A spelling correction should need a human to approve it, so the template drops
+`--write-changes`. Add it back per-project if you want the autofix.
 
 ## Update an existing project when the template changes
 
