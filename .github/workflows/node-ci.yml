@@ -53,6 +53,20 @@ jobs:
         with:
           persist-credentials: false
 
+      # Honours the `packageManager` field in package.json, which is how Yarn
+      # Berry and pnpm pin themselves.
+      #
+      # This MUST come before setup-node. With `cache` set, setup-node probes
+      # the package manager for its cache folder — for Yarn that means
+      # `yarn config get cacheFolder`, which fails when package.json pins
+      # yarn 4 and the runner's bare `yarn` is still 1.x. Enabling corepack
+      # first (with the runner's pre-installed Node) gives it a yarn that can
+      # answer. Verified in CI: with the steps the other way round, setup-node
+      # failed outright.
+      - name: Enable corepack
+        working-directory: ${{ github.workspace }}
+        run: corepack enable
+
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ inputs.node-version }}
@@ -63,11 +77,6 @@ jobs:
             ${{ inputs.working-directory }}/yarn.lock
             ${{ inputs.working-directory }}/package-lock.json
             ${{ inputs.working-directory }}/pnpm-lock.yaml
-
-      # Honours the `packageManager` field in package.json, which is how Yarn
-      # Berry and pnpm pin themselves.
-      - name: Enable corepack
-        run: corepack enable
 
       - name: Install dependencies
         env:
