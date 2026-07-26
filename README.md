@@ -107,9 +107,22 @@ generated data the project commits, such as serialised test fixtures.
 
 Biome is chosen for the same reason as ruff on the Python side — one fast Rust
 binary doing both jobs, one config file, no plugin ecosystem to keep in sync.
-The trade-off is that it has no type-aware linting; rules like
-`no-floating-promises` need typescript-eslint. `tsc --noEmit` under `strict`
-covers most of that ground.
+
+Biome v2 added [type-aware
+linting](https://biomejs.dev/blog/biome-v2/) using its own inference, so the
+rules that used to require typescript-eslint no longer do. `noFloatingPromises`
+works without a `tsconfig` or a type-checker in the loop — verified against
+2.5.5. Those rules are still in the `nursery` group, so they aren't on by
+default and have to be named:
+
+```json
+"linter": { "rules": { "nursery": { "noFloatingPromises": "error" } } }
+```
+
+The template leaves them off: nursery rules are explicitly unstable and may
+change between releases. Turn them on per-project when you want them, and keep
+`tsc --noEmit` under `strict` as the backstop either way — Biome's inference is
+newer and less complete than a full type-checker's.
 
 ## Keeping projects up to date
 
