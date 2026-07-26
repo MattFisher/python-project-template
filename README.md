@@ -27,7 +27,8 @@ uvx copier copy gh:MattFisher/python-project-template my-new-project
 
 You'll be asked for the name, description, whether it's an app or a library,
 Python version, whether to enable a coverage gate, whether the project has a
-TypeScript/JavaScript frontend, and whether to run the typos spell-checker.
+TypeScript/JavaScript frontend, whether to run the typos spell-checker, and
+whether to open template-update PRs automatically.
 
 ### Turning off `typos`
 
@@ -126,11 +127,18 @@ newer and less complete than a full type-checker's.
 
 ## Keeping projects up to date
 
-Scaffolded projects get a `template-update.yml` workflow that runs
-`copier update` weekly (and on demand) and opens a PR when the template's
-*scaffolded files* have changed. Copier does a three-way merge between the old
-template output, the new output, and the project's local edits, so
-customisations survive.
+Answer yes to `use_template_update` (the default) and the scaffold gets a
+`template-update.yml` workflow that runs `copier update` weekly (and on demand)
+and opens a PR when the template's *scaffolded files* have changed. Copier does
+a three-way merge between the old template output, the new output, and the
+project's local edits, so customisations survive.
+
+Answering no leaves the workflow out. It does **not** cut the project off from
+template updates: `.copier-answers.yml` is written either way, so
+`uvx copier update` still works by hand whenever you want it. Worth declining
+for a repo that should pull template changes on its own schedule rather than
+weekly — one in a release freeze, or one whose local edits have diverged far
+enough that every update run conflicts and the PRs become noise.
 
 Two things worth knowing about the scope:
 

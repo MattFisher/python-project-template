@@ -75,8 +75,18 @@ jobs:
           ! grep -q "node-ci.yml" /tmp/out-app/.github/workflows/ci.yml
           echo "frontend variant rendered and validated."
 
-          # every scaffold gets the template-update workflow and its baseline
+          # the template-update workflow defaults on, with its baseline
           test -f /tmp/out-app/.github/workflows/template-update.yml
           test -f /tmp/out-app/.copier-answers.yml
           python3 -c "import yaml; yaml.safe_load(open('/tmp/out-app/.github/workflows/template-update.yml'))"
-          echo "template-update workflow present."
+
+          # answering no drops the workflow but KEEPS the answers file, so
+          # `copier update` by hand still works
+          uvx copier copy --trust --defaults \
+            --data project_name="sample-no-auto-update" \
+            --data project_description="A sample without the update workflow" \
+            --data use_template_update=false \
+            . /tmp/out-no-auto-update
+          test ! -e /tmp/out-no-auto-update/.github/workflows/template-update.yml
+          test -f /tmp/out-no-auto-update/.copier-answers.yml
+          echo "template-update workflow present by default, opt-out honoured."

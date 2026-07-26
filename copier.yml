@@ -78,6 +78,18 @@ use_typos:
   help: Run the typos spell-checker? (say no for medical/legal/scientific vocabulary, or lots of generated data)
   default: true
 
+use_template_update:
+  type: bool
+  # Adds a scheduled workflow that runs `copier update` and opens a PR when the
+  # template's scaffolded files change. Worth declining for a repo that wants
+  # template changes pulled on its own schedule rather than weekly — a vendored
+  # snapshot, a project in a release freeze, or one whose local edits diverge
+  # far enough that every update conflicts. Declining doesn't block updates:
+  # `.copier-answers.yml` is written either way, so `uvx copier update` still
+  # works by hand.
+  help: Open a PR automatically when the template changes? (weekly `copier update`)
+  default: true
+
 coverage_floor:
   type: int
   help: Minimum coverage percentage
