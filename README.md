@@ -17,7 +17,11 @@ standard so the repos don't drift:
   build
 - **Keep a Changelog** `CHANGELOG.md`; libraries also get PyPI trusted
   publishing (`publish.yml` + `RELEASING.md`)
-- A Claude Code `SessionStart` hook that pre-warms the toolchain
+- A Claude Code `SessionStart` hook that pre-warms the toolchain. With a
+  frontend it also points corepack at `registry.npmjs.org`, since some sandbox
+  egress proxies block `repo.yarnpkg.com` and corepack then fails before Yarn or
+  pnpm starts — which leaves the frontend impossible to install, build or
+  type-check. Plain npm ignores the setting.
 
 ## Scaffold a new project
 

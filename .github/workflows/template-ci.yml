@@ -39,6 +39,10 @@ jobs:
             test -f "/tmp/out-$kind/.pre-commit-config.yaml"
             test -f "/tmp/out-$kind/.github/workflows/ci.yml"
             test -f "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            # The hook is templated, so it can render into invalid shell, and it
+            # is useless if copier drops the executable bit.
+            test -x "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            bash -n "/tmp/out-$kind/.claude/hooks/session-start.sh"
           done
           # library-only files present for library, absent for app
           test -f /tmp/out-library/RELEASING.md
@@ -77,6 +81,13 @@ jobs:
           # scaffold excludes it -- and only a frontend scaffold has one.
           grep -q 'exclude: \^frontend/tsconfig' /tmp/out-frontend/.pre-commit-config.yaml
           ! grep -q 'tsconfig' /tmp/out-app/.pre-commit-config.yaml
+          # The session hook points corepack at the npm registry, because
+          # repo.yarnpkg.com is blocked by some sandbox egress proxies. Only
+          # useful to a frontend scaffold, so only a frontend scaffold gets it.
+          test -x /tmp/out-frontend/.claude/hooks/session-start.sh
+          bash -n /tmp/out-frontend/.claude/hooks/session-start.sh
+          grep -q 'COREPACK_NPM_REGISTRY' /tmp/out-frontend/.claude/hooks/session-start.sh
+          ! grep -q 'COREPACK_NPM_REGISTRY' /tmp/out-app/.claude/hooks/session-start.sh
           # and adds none of it by default
           test ! -e /tmp/out-app/biome.json
           ! grep -q "biomejs/pre-commit" /tmp/out-app/.pre-commit-config.yaml
