@@ -8,6 +8,12 @@ repos:
     hooks:
       - id: check-added-large-files
       - id: check-json
+{% if use_frontend %}
+        # tsconfig.json is JSONC: TypeScript has always allowed comments there,
+        # and Biome parses it as such. check-json uses the stdlib json module,
+        # which does not, so it fails on a commented tsconfig.
+        exclude: ^{{ frontend_dir }}/tsconfig.*\.json$
+{% endif %}
       - id: check-yaml
       - id: debug-statements
       - id: detect-private-key

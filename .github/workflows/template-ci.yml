@@ -69,6 +69,14 @@ jobs:
           grep -q "node-ci.yml" /tmp/out-frontend/.github/workflows/ci.yml
           python3 -c "import json; json.load(open('/tmp/out-frontend/biome.json'))"
           python3 -c "import yaml; yaml.safe_load(open('/tmp/out-frontend/.github/workflows/ci.yml'))"
+          # `recommended` is deprecated in Biome 2.5.5; `preset` is the spelling
+          # that doesn't emit a notice.
+          grep -q '"preset": "recommended"' /tmp/out-frontend/biome.json
+          ! grep -q '"recommended": true' /tmp/out-frontend/biome.json
+          # check-json can't parse the comments tsconfig permits, so a frontend
+          # scaffold excludes it -- and only a frontend scaffold has one.
+          grep -q 'exclude: \^frontend/tsconfig' /tmp/out-frontend/.pre-commit-config.yaml
+          ! grep -q 'tsconfig' /tmp/out-app/.pre-commit-config.yaml
           # and adds none of it by default
           test ! -e /tmp/out-app/biome.json
           ! grep -q "biomejs/pre-commit" /tmp/out-app/.pre-commit-config.yaml

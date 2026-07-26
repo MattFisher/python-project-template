@@ -106,6 +106,13 @@ alone doesn't keep Biome out of Yarn's own vendored code — without the
 exclusion it reformats those files. Add your own exclusions there for any
 generated data the project commits, such as serialised test fixtures.
 
+Two smaller details in the generated config. The rule preset is spelled
+`"preset": "recommended"` rather than `"recommended": true`, which Biome 2.5.5
+deprecates. And a frontend scaffold excludes `tsconfig*.json` from the
+`check-json` pre-commit hook: TypeScript has always allowed comments in
+tsconfig, and Biome parses it as JSONC, but `check-json` uses Python's stdlib
+`json` module and fails on them.
+
 Biome is chosen for the same reason as ruff on the Python side — one fast Rust
 binary doing both jobs, one config file, no plugin ecosystem to keep in sync.
 
