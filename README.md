@@ -104,7 +104,7 @@ hook, and `python-ci` already runs the whole pre-commit stack, so a hybrid repo
 gets TS lint/format without paying for a second Node job. `node-ci` covers only
 the parts that need the project's own dependencies installed.
 
-`biome.json` excludes `.yarn/**`. Yarn Berry projects commit `.yarn/sdks` and
+`biome.json` excludes `.yarn`. Yarn Berry projects commit `.yarn/sdks` and
 `.yarn/releases` (their `.gitignore` un-ignores them), so `useIgnoreFile`
 alone doesn't keep Biome out of Yarn's own vendored code — without the
 exclusion it reformats those files. Add your own exclusions there for any
