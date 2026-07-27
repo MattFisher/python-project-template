@@ -1,2 +1,6 @@
 .DS_Store
 __pycache__/
+# Written at the repo root, not in the fixture: the smoke fixture's pre-commit
+# run resolves its config from tests/smoke/python but operates from the git top
+# level, so ruff drops its cache here.
+.ruff_cache/
