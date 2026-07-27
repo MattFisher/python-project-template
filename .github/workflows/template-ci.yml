@@ -146,3 +146,26 @@ jobs:
             ( cd "$out" && uvx pre-commit run --all-files --show-diff-on-failure )
             echo "::endgroup::"
           done
+
+  # The reusable workflows are `workflow_call`-only, so nothing in this repo
+  # ever executed them: a change to either shipped straight to every consumer
+  # on the next `v1` move, untested. Both bugs that surfaced while adopting the
+  # template in a real repo were of exactly that kind -- `corepack enable`
+  # ordered after setup-node, and a `run:` line that wasn't valid YAML.
+  #
+  # These call the workflows for real against fixtures under tests/smoke/. The
+  # fixtures are deliberately minimal and are NOT a mirror of the scaffold --
+  # template-ci already checks the scaffold's content. Their job is to prove the
+  # workflows themselves run end to end.
+  smoke-python-ci:
+    name: Smoke-test python-ci.yml
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      working-directory: tests/smoke/python
+      mypy-paths: src
+
+  smoke-node-ci:
+    name: Smoke-test node-ci.yml
+    uses: ./.github/workflows/node-ci.yml
+    with:
+      working-directory: tests/smoke/node
