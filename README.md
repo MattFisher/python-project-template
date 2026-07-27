@@ -177,3 +177,9 @@ or swap in a PAT or GitHub App token if you want that automatic.
 Tagged `v1.0.0` with a moving `v1`. Generated projects pin the reusable workflow
 to `@v1`; a repo-local `.github/zizmor.yml` allows tag-pinned refs from
 `MattFisher/*` while still requiring commit-SHA pins for third-party actions.
+
+The generated `.github/dependabot.yml` also ignores `MattFisher/*` for the
+github-actions ecosystem. Without it, Dependabot rewrites `@v1` to a fixed
+`@v1.x.y` and then opens a bump PR on every release — and the next `copier
+update` restores the moving tag, so the two fight indefinitely. Third-party
+actions are unaffected: still SHA-pinned, still bumped weekly.
