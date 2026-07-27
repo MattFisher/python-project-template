@@ -180,6 +180,8 @@ to `@v1`; a repo-local `.github/zizmor.yml` allows tag-pinned refs from
 
 The generated `.github/dependabot.yml` also ignores `MattFisher/*` for the
 github-actions ecosystem. Without it, Dependabot rewrites `@v1` to a fixed
-`@v1.x.y` and then opens a bump PR on every release — and the next `copier
-update` restores the moving tag, so the two fight indefinitely. Third-party
-actions are unaffected: still SHA-pinned, still bumped weekly.
+`@v1.x.y`, and that pin is sticky — `copier update` will not restore the moving
+tag, because it only applies the diff between template versions and this line
+does not change between them. The project then silently stops tracking CI fixes
+and pays a bump PR per release, which is the opposite of what the moving tag is
+for. Third-party actions are unaffected: still SHA-pinned, still bumped weekly.

@@ -14,7 +14,8 @@ jobs:
     # Moving major tag on purpose (see .github/zizmor.yml): we own this repo,
     # so CI fixes flow in without a bump PR per template release. Dependabot
     # is told to leave it alone in .github/dependabot.yml — don't "helpfully"
-    # pin this to an exact version, or copier update will just revert it.
+    # pin this to an exact version; nothing restores the moving tag afterwards
+    # and CI quietly stops tracking the template.
     uses: {{ github_owner }}/python-project-template/.github/workflows/python-ci.yml@v1
     with:
       python-version: "{{ python_version }}"
