@@ -43,6 +43,12 @@ jobs:
             # is useless if copier drops the executable bit.
             test -x "/tmp/out-$kind/.claude/hooks/session-start.sh"
             bash -n "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            # shellcheck-py builds from source and its build can't verify the
+            # MITM CA some sandboxes present once Python 3.13 turns on strict
+            # certificate checking, which breaks `git commit` outright there. The
+            # pin below the default is what avoids it, so losing the pin while
+            # raising default_language_version is the regression to catch.
+            python3 -c "import sys,yaml; cfg=yaml.safe_load(open(sys.argv[1])); hs=[h for r in cfg['repos'] if 'shellcheck-py' in r['repo'] for h in r['hooks'] if h['id']=='shellcheck']; assert len(hs)==1, hs; v=hs[0].get('language_version'); assert v=='python3.12', f'shellcheck language_version is {v!r}'" "/tmp/out-$kind/.pre-commit-config.yaml"
           done
           # library-only files present for library, absent for app
           test -f /tmp/out-library/RELEASING.md
