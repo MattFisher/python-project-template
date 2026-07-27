@@ -123,3 +123,26 @@ jobs:
           test ! -e /tmp/out-no-auto-update/.github/workflows/template-update.yml
           test -f /tmp/out-no-auto-update/.copier-answers.yml
           echo "template-update workflow present by default, opt-out honoured."
+
+      - name: Run each rendered project's own hooks
+        # The actual dogfooding, and the only check here that exercises the
+        # generated config rather than just asserting files exist. Rendering and
+        # grepping proves biome.json is present and parses; it cannot tell you
+        # that Biome accepts what it says.
+        #
+        # This was added after a fresh frontend scaffold turned out to fail its
+        # own stack on the first run: the shipped `includes` used a glob Biome
+        # normalises, so biome-check rewrote biome.json and every new project
+        # started red with a diff in a file nobody had touched.
+        #
+        # pre-commit enumerates through `git ls-files`, so the render has to be
+        # a git repo with everything staged or every hook silently skips.
+        run: |
+          set -euo pipefail
+          for out in /tmp/out-app /tmp/out-frontend; do
+            echo "::group::pre-commit in $out"
+            git -C "$out" init -q
+            git -C "$out" add -A
+            ( cd "$out" && uvx pre-commit run --all-files --show-diff-on-failure )
+            echo "::endgroup::"
+          done
