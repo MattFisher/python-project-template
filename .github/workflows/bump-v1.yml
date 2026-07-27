@@ -1,0 +1,68 @@
+name: Bump v1
+
+# Moves the `v1` major tag to a published release, because every consumer pins
+# `@v1` and that tag is what actually ships a change to them.
+#
+# Deliberately NOT triggered on push to main. `v1` is the deploy: moving it on
+# merge would give every consumer the new CI with nothing in between, and the
+# reusable workflows have no coverage beyond the smoke jobs in template-ci.
+# Cutting a release is the point where a human is already exercising judgement,
+# so that is where the tag moves.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bump-v1
+  cancel-in-progress: false # never abandon a half-done tag move
+
+jobs:
+  bump:
+    name: Move v1 to the released commit
+    runs-on: ubuntu-latest
+    # Skip anything that isn't a stable 1.x release: a v2 tag must not drag v1
+    # forward onto a breaking change, and a prerelease is by definition not what
+    # consumers pinned to `@v1` should receive.
+    if: >-
+      ${{ !github.event.release.prerelease
+          && startsWith(github.event.release.tag_name, 'v1.') }}
+    permissions:
+      # Scoped to this job so the rest of the workflow stays read-only.
+      contents: write # move the v1 tag
+    steps:
+      # No checkout on purpose: moving a ref needs the API, not a working copy,
+      # and skipping it avoids persisting credentials on disk for a job that
+      # holds the one token able to rewrite what every consumer runs.
+      - name: Refuse to move v1 off main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # compare main...SHA describes SHA relative to main: "identical" when
+          # it is the tip, "behind" when it is an ancestor. Anything else means
+          # the release was cut from a commit that never landed on main, and v1
+          # would start pointing at code no one reviewed there.
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${RELEASE_SHA}" --jq .status)
+          case "$status" in
+            identical | behind)
+              echo "released commit is contained in main (status: $status)"
+              ;;
+            *)
+              echo "::error::released commit ${RELEASE_SHA} is not contained in main (status: ${status})"
+              exit 1
+              ;;
+          esac
+
+      - name: Move v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/v1" \
+            -f sha="${RELEASE_SHA}" -F force=true
+          echo "v1 -> ${RELEASE_SHA}"
