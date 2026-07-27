@@ -1,0 +1,17 @@
+# Intentionally just ruff. The full scaffolded stack is already exercised
+# against a real render by template-ci's "Run each rendered project's own
+# hooks" step; what this fixture is for is proving python-ci.yml's pre-commit
+# step runs at all.
+#
+# Note the blast radius: pre-commit resolves its config from the working
+# directory but enumerates files from the git top level, so `--all-files` run
+# here covers the whole template repo, not just this fixture. Verified by
+# staging a badly formatted .py at the repo root and watching this config
+# reformat it. Harmless while the fixture holds the repo's only Python, but a
+# stray .py elsewhere would be judged by these rules.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: c59bba8fb259db0fec2bbb77ad8ba51ea7341b56 # v0.15.20
+    hooks:
+      - id: ruff-check
+      - id: ruff-format

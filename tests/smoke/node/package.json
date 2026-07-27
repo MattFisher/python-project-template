@@ -1,0 +1,12 @@
+{
+  "name": "node-ci-smoke",
+  "private": true,
+  "packageManager": "yarn@4.10.3",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --outDir dist"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

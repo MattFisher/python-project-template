@@ -18,6 +18,13 @@ on:
         description: Paths to type-check with mypy.
         type: string
         default: "src"
+      working-directory:
+        description: >
+          Directory holding pyproject.toml. Defaults to the repo root; set to a
+          subdirectory for a repo where the Python project isn't at the top.
+          Mirrors the same input on node-ci.yml.
+        type: string
+        default: "."
 
 permissions:
   contents: read
@@ -28,6 +35,9 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -59,7 +69,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-3|${{ runner.os }}|${{ inputs.python-version }}|${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-3|${{ runner.os }}|${{ inputs.python-version }}|${{ hashFiles(format('{0}/.pre-commit-config.yaml', inputs.working-directory)) }}
 
       - name: Pre-commit (ruff, zizmor, mdformat)
         env:

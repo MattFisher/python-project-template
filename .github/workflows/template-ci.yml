@@ -27,10 +27,18 @@ jobs:
           python-version: "3.12"
 
       - name: Render both variants and check them
+        # --vcs-ref=HEAD on every copier call is load-bearing. Given a local git
+        # repo, copier renders the latest *tag* by default, not the checkout --
+        # so without this the whole job silently validates the released template
+        # instead of the branch under review, and every assertion below passes
+        # while proving nothing about the change. It only works today because
+        # actions/checkout fetches no tags, which is an accident rather than a
+        # decision, and it makes local runs disagree with CI on a machine that
+        # does have the tags.
         run: |
           set -euo pipefail
           for kind in app library; do
-            uvx copier copy --trust --defaults \
+            uvx copier copy --trust --defaults --vcs-ref=HEAD \
               --data project_name="sample-$kind" \
               --data project_description="A sample $kind" \
               --data project_kind="$kind" \
@@ -43,6 +51,12 @@ jobs:
             # is useless if copier drops the executable bit.
             test -x "/tmp/out-$kind/.claude/hooks/session-start.sh"
             bash -n "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            # shellcheck-py builds from source and its build can't verify the
+            # MITM CA some sandboxes present once Python 3.13 turns on strict
+            # certificate checking, which breaks `git commit` outright there. The
+            # pin below the default is what avoids it, so losing the pin while
+            # raising default_language_version is the regression to catch.
+            python3 -c "import sys,yaml; cfg=yaml.safe_load(open(sys.argv[1])); hs=[h for r in cfg['repos'] if 'shellcheck-py' in r['repo'] for h in r['hooks'] if h['id']=='shellcheck']; assert len(hs)==1, hs; v=hs[0].get('language_version'); assert v=='python3.12', f'shellcheck language_version is {v!r}'" "/tmp/out-$kind/.pre-commit-config.yaml"
           done
           # library-only files present for library, absent for app
           test -f /tmp/out-library/RELEASING.md
@@ -52,7 +66,7 @@ jobs:
           echo "Both variants rendered and validated."
 
           # use_typos defaults on, and answering no drops the hook
-          uvx copier copy --trust --defaults \
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
             --data project_name="sample-no-typos" \
             --data project_description="A sample without the typos hook" \
             --data use_typos=false \
@@ -63,7 +77,7 @@ jobs:
           echo "typos opt-out honoured."
 
           # use_frontend adds biome.json, the Biome hook, and the node-ci job
-          uvx copier copy --trust --defaults \
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
             --data project_name="sample-frontend" \
             --data project_description="A sample with a frontend" \
             --data use_frontend=true \
@@ -101,7 +115,7 @@ jobs:
 
           # answering no drops the workflow but KEEPS the answers file, so
           # `copier update` by hand still works
-          uvx copier copy --trust --defaults \
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
             --data project_name="sample-no-auto-update" \
             --data project_description="A sample without the update workflow" \
             --data use_template_update=false \
@@ -109,3 +123,49 @@ jobs:
           test ! -e /tmp/out-no-auto-update/.github/workflows/template-update.yml
           test -f /tmp/out-no-auto-update/.copier-answers.yml
           echo "template-update workflow present by default, opt-out honoured."
+
+      - name: Run each rendered project's own hooks
+        # The actual dogfooding, and the only check here that exercises the
+        # generated config rather than just asserting files exist. Rendering and
+        # grepping proves biome.json is present and parses; it cannot tell you
+        # that Biome accepts what it says.
+        #
+        # This was added after a fresh frontend scaffold turned out to fail its
+        # own stack on the first run: the shipped `includes` used a glob Biome
+        # normalises, so biome-check rewrote biome.json and every new project
+        # started red with a diff in a file nobody had touched.
+        #
+        # pre-commit enumerates through `git ls-files`, so the render has to be
+        # a git repo with everything staged or every hook silently skips.
+        run: |
+          set -euo pipefail
+          for out in /tmp/out-app /tmp/out-frontend; do
+            echo "::group::pre-commit in $out"
+            git -C "$out" init -q
+            git -C "$out" add -A
+            ( cd "$out" && uvx pre-commit run --all-files --show-diff-on-failure )
+            echo "::endgroup::"
+          done
+
+  # The reusable workflows are `workflow_call`-only, so nothing in this repo
+  # ever executed them: a change to either shipped straight to every consumer
+  # on the next `v1` move, untested. Both bugs that surfaced while adopting the
+  # template in a real repo were of exactly that kind -- `corepack enable`
+  # ordered after setup-node, and a `run:` line that wasn't valid YAML.
+  #
+  # These call the workflows for real against fixtures under tests/smoke/. The
+  # fixtures are deliberately minimal and are NOT a mirror of the scaffold --
+  # template-ci already checks the scaffold's content. Their job is to prove the
+  # workflows themselves run end to end.
+  smoke-python-ci:
+    name: Smoke-test python-ci.yml
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      working-directory: tests/smoke/python
+      mypy-paths: src
+
+  smoke-node-ci:
+    name: Smoke-test node-ci.yml
+    uses: ./.github/workflows/node-ci.yml
+    with:
+      working-directory: tests/smoke/node
