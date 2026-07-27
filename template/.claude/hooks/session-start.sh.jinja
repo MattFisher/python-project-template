@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+  exit 0
+fi
+
+cd "$CLAUDE_PROJECT_DIR"
+
+{% if use_frontend %}
+# corepack downloads package managers from repo.yarnpkg.com, which some sandbox
+# egress proxies refuse with a 403 -- so `corepack yarn` fails before yarn even
+# starts, and nothing in the frontend can be installed, built or type-checked.
+# registry.npmjs.org serves the same builds and is on the usual proxy bypass
+# lists, so pointing corepack there sidesteps the block.
+#
+# Harmless where the proxy isn't in the way, and harmless for plain npm, which
+# ignores it. Only Yarn Berry and pnpm pinned through `packageManager` go
+# through corepack at all.
+#
+# Written to CLAUDE_ENV_FILE rather than merely exported, because every later
+# package-manager invocation in the session needs it, not just this script.
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  # The hook also runs on resume/clear/compact, so don't append a duplicate.
+  if ! grep -qF 'COREPACK_NPM_REGISTRY' "$CLAUDE_ENV_FILE" 2>/dev/null; then
+    echo 'export COREPACK_NPM_REGISTRY=https://registry.npmjs.org' >>"$CLAUDE_ENV_FILE"
+  fi
+fi
+
+{% endif %}
+# Install the project + dev tooling (pytest, mypy, pre-commit) into the uv-managed venv.
+uv sync
+
+# Installs the git hook (so `git commit` runs it automatically) and
+# pre-warms hook environments/cache. Pre-existing findings shouldn't block
+# session start, so this step is non-blocking - failures surface as normal
+# output for the agent to see and address, not a broken session.
+uv run pre-commit install
+uv run pre-commit run --all-files || true

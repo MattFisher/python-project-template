@@ -39,6 +39,10 @@ jobs:
             test -f "/tmp/out-$kind/.pre-commit-config.yaml"
             test -f "/tmp/out-$kind/.github/workflows/ci.yml"
             test -f "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            # The hook is templated, so it can render into invalid shell, and it
+            # is useless if copier drops the executable bit.
+            test -x "/tmp/out-$kind/.claude/hooks/session-start.sh"
+            bash -n "/tmp/out-$kind/.claude/hooks/session-start.sh"
           done
           # library-only files present for library, absent for app
           test -f /tmp/out-library/RELEASING.md
@@ -57,3 +61,51 @@ jobs:
           ! grep -q "crate-ci/typos" /tmp/out-no-typos/.pre-commit-config.yaml
           python3 -c "import yaml; yaml.safe_load(open('/tmp/out-no-typos/.pre-commit-config.yaml'))"
           echo "typos opt-out honoured."
+
+          # use_frontend adds biome.json, the Biome hook, and the node-ci job
+          uvx copier copy --trust --defaults \
+            --data project_name="sample-frontend" \
+            --data project_description="A sample with a frontend" \
+            --data use_frontend=true \
+            . /tmp/out-frontend
+          test -f /tmp/out-frontend/biome.json
+          grep -q "biomejs/pre-commit" /tmp/out-frontend/.pre-commit-config.yaml
+          grep -q "node-ci.yml" /tmp/out-frontend/.github/workflows/ci.yml
+          python3 -c "import json; json.load(open('/tmp/out-frontend/biome.json'))"
+          python3 -c "import yaml; yaml.safe_load(open('/tmp/out-frontend/.github/workflows/ci.yml'))"
+          # `recommended` is deprecated in Biome 2.5.5; `preset` is the spelling
+          # that doesn't emit a notice.
+          grep -q '"preset": "recommended"' /tmp/out-frontend/biome.json
+          ! grep -q '"recommended": true' /tmp/out-frontend/biome.json
+          # check-json can't parse the comments tsconfig permits, so a frontend
+          # scaffold excludes it -- and only a frontend scaffold has one.
+          grep -q 'exclude: \^frontend/tsconfig' /tmp/out-frontend/.pre-commit-config.yaml
+          ! grep -q 'tsconfig' /tmp/out-app/.pre-commit-config.yaml
+          # The session hook points corepack at the npm registry, because
+          # repo.yarnpkg.com is blocked by some sandbox egress proxies. Only
+          # useful to a frontend scaffold, so only a frontend scaffold gets it.
+          test -x /tmp/out-frontend/.claude/hooks/session-start.sh
+          bash -n /tmp/out-frontend/.claude/hooks/session-start.sh
+          grep -q 'COREPACK_NPM_REGISTRY' /tmp/out-frontend/.claude/hooks/session-start.sh
+          ! grep -q 'COREPACK_NPM_REGISTRY' /tmp/out-app/.claude/hooks/session-start.sh
+          # and adds none of it by default
+          test ! -e /tmp/out-app/biome.json
+          ! grep -q "biomejs/pre-commit" /tmp/out-app/.pre-commit-config.yaml
+          ! grep -q "node-ci.yml" /tmp/out-app/.github/workflows/ci.yml
+          echo "frontend variant rendered and validated."
+
+          # the template-update workflow defaults on, with its baseline
+          test -f /tmp/out-app/.github/workflows/template-update.yml
+          test -f /tmp/out-app/.copier-answers.yml
+          python3 -c "import yaml; yaml.safe_load(open('/tmp/out-app/.github/workflows/template-update.yml'))"
+
+          # answering no drops the workflow but KEEPS the answers file, so
+          # `copier update` by hand still works
+          uvx copier copy --trust --defaults \
+            --data project_name="sample-no-auto-update" \
+            --data project_description="A sample without the update workflow" \
+            --data use_template_update=false \
+            . /tmp/out-no-auto-update
+          test ! -e /tmp/out-no-auto-update/.github/workflows/template-update.yml
+          test -f /tmp/out-no-auto-update/.copier-answers.yml
+          echo "template-update workflow present by default, opt-out honoured."
