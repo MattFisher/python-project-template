@@ -13,6 +13,11 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 
 ## [Unreleased]
 
+### Added
+
+- This changelog, backfilled from git history.
+- `bump-v1.yml` refuses to move `v1` for a release that has no changelog section, or that leaves entries under `[Unreleased]`. The check runs before the tag moves, so an undocumented release delivers nothing to consumers.
+
 ## [1.6.0] - 2026-07-27
 
 The largest release so far: an optional TypeScript side, automated template updates, and a substantial pass over how the template verifies itself.
