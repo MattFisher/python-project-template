@@ -1,0 +1,37 @@
+{
+  "name": "{{ project_name }}",
+  "version": "0.1.0",
+  "description": "{{ project_description }}",
+  "private": true,
+  "type": "module",
+  {% if license == 'MIT' %}
+  "license": "MIT",
+  {% else %}
+  "license": "UNLICENSED",
+  {% endif %}
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    {% if use_d1 %}
+    "migrations:local": "wrangler d1 migrations apply {{ project_name }}-dev --local",
+    {% if use_staging %}
+    "migrations:staging": "wrangler d1 migrations apply {{ project_name }}-staging --env staging --remote",
+    {% endif %}
+    "migrations:prod": "wrangler d1 migrations apply {{ project_name }} --env production --remote",
+    {% endif %}
+    {% if use_staging %}
+    "deploy:staging": "wrangler deploy --env staging",
+    {% endif %}
+    "deploy": "wrangler deploy --env production",
+    "tail": "wrangler tail --env production"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.19.0",
+    "@cloudflare/workers-types": "^5.20260722.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.0.0"
+  }
+}

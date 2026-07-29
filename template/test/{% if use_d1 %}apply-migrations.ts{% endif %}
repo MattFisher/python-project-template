@@ -1,0 +1,5 @@
+import { applyD1Migrations, env } from "cloudflare:test";
+
+// Runs once per test run (setupFiles in vitest.config.ts), applying the real
+// files from ./migrations to the simulated test database.
+await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);

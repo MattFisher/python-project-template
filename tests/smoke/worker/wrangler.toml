@@ -1,0 +1,27 @@
+# Top-level configuration is LOCAL DEVELOPMENT AND TESTS ONLY: it is what
+# `wrangler dev` and the vitest workers pool read, and it points at -dev
+# resources that wrangler simulates on disk. Deployed targets are the named
+# environments below, so a deploy always says which environment it means
+# (`npm run deploy`) and local development can never
+# bind production resources by accident.
+#
+# Two wrangler gotchas encoded here:
+#   1. Named environments DO NOT inherit bindings ([[d1_databases]],
+#      [[r2_buckets]], [triggers], ...) from the top level. Every binding
+#      must be repeated per environment, pointing at that environment's own
+#      resources.
+#   2. Cron triggers fire in EVERY deployed environment that declares them.
+#      A cron that must not run twice (sends email, hits a paid API, ...)
+#      should be declared only under [env.production.triggers].
+
+name = "smoke-worker"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+# Inherited by all environments.
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[env.production]
+name = "smoke-worker"

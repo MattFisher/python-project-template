@@ -1,0 +1,9 @@
+# The smoke fixture's own installs
+tests/smoke/worker/node_modules/
+tests/smoke/worker/.wrangler/
+
+# Editors / OS
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

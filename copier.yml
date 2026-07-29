@@ -1,0 +1,116 @@
+_subdirectory: template
+_min_copier_version: "9.0.0"
+
+# Trim block-tag newlines so conditionals don't leave stray blank lines in
+# rendered text/markdown (keeps mdformat happy on a fresh scaffold).
+_envops:
+  trim_blocks: true
+  lstrip_blocks: true
+  keep_trailing_newline: true
+
+_message_after_copy: |
+  Worker "{{ project_name }}" scaffolded.
+
+  Next steps:
+    cd {{ project_name }}
+    npm install
+    npm test
+    git init && git add -A && git commit -m "Initial commit"
+  {% if use_d1 %}
+  Create the deployed D1 database(s) and paste each returned id into wrangler.toml:
+    npx wrangler d1 create {{ project_name }}
+  {% if use_staging %}
+    npx wrangler d1 create {{ project_name }}-staging
+  {% endif %}
+  {% endif %}
+  {% if use_r2 %}
+  Create the deployed R2 bucket(s):
+    npx wrangler r2 bucket create {{ project_name }}
+  {% if use_staging %}
+    npx wrangler r2 bucket create {{ project_name }}-staging
+  {% endif %}
+  {% endif %}
+
+  Deploys run from CI: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as
+  repository secrets (see README.md).
+
+project_name:
+  type: str
+  help: Worker / repo name in kebab-case, e.g. "logfile-upload"
+
+project_description:
+  type: str
+  help: One-line description of the Worker
+
+use_staging:
+  type: bool
+  # Adds an [env.staging] wrangler environment with its own resources, and a
+  # staging deploy job that runs before production on every push to main. Add
+  # required reviewers to the `production` GitHub environment to turn the
+  # staging -> production hand-off into an approval gate. The top-level
+  # wrangler config is local-dev only either way, so declining still keeps
+  # local development isolated from production.
+  help: Deploy to a staging environment before production?
+  default: false
+
+use_d1:
+  type: bool
+  # Scaffolds a migrations/ directory, per-environment [[d1_databases]]
+  # bindings, migration npm scripts, migration application in the deploy
+  # pipeline, and a test setup that applies the real migrations to the
+  # simulated test database before every run.
+  help: Does this Worker use a D1 database?
+  default: false
+
+use_r2:
+  type: bool
+  # Scaffolds per-environment [[r2_buckets]] bindings and a cors.json to apply
+  # to the bucket (R2 CORS lives on the bucket, not in wrangler.toml).
+  help: Does this Worker use an R2 bucket?
+  default: false
+
+use_cron:
+  type: bool
+  # Scaffolds a scheduled() handler and per-environment [triggers] blocks.
+  # NOTE: crons fire in every deployed environment that declares them — the
+  # scaffold declares them in staging too, so delete that block if the job
+  # must not run twice (sends email, hits a paid API, ...).
+  help: Does this Worker run on a cron schedule?
+  default: false
+
+node_version:
+  type: str
+  help: Node version for CI and deploys (the Worker itself runs on workerd)
+  default: "22"
+
+use_typos:
+  type: bool
+  # Report-only spell-check of code, comments, and docs. Say no for projects
+  # whose vocabulary the checker doesn't know — see the template README.
+  help: Run the typos spell-checker?
+  default: true
+
+use_template_update:
+  type: bool
+  # Adds a scheduled workflow that runs `copier update` and opens a PR when the
+  # template's scaffolded files change. Declining doesn't block updates:
+  # `.copier-answers.yml` is written either way, so `uvx copier update` still
+  # works by hand.
+  help: Open a PR automatically when the template changes? (weekly `copier update`)
+  default: true
+
+github_owner:
+  type: str
+  default: Generality-Labs
+
+author_name:
+  type: str
+  default: Generality Labs
+
+license:
+  type: str
+  help: License for the project
+  choices:
+    "MIT (permissive open source; writes a LICENSE file)": MIT
+    "Proprietary (all rights reserved; no LICENSE file)": Proprietary
+  default: MIT

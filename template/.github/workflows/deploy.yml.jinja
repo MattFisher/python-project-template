@@ -1,0 +1,71 @@
+name: Deploy
+
+{% if use_staging %}
+# Every push to main deploys staging, then production. Add required reviewers
+# to the `production` GitHub environment (repo settings) to make the
+# staging -> production hand-off a manual approval gate. Each job smoke-tests
+# the Worker afterwards when a HEALTH_URL variable is set on its GitHub
+# environment.
+{% else %}
+# Every push to main deploys production. The job smoke-tests the Worker
+# afterwards when a HEALTH_URL variable is set on the `production` GitHub
+# environment.
+{% endif %}
+#
+# Requires two repository secrets (see README.md):
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # never abandon a half-done deploy
+
+jobs:
+{% if use_staging %}
+  staging:
+    uses: {{ github_owner }}/cloudflare-worker-template/.github/workflows/worker-deploy.yml@v1
+    with:
+      environment: staging
+      deploy-script: deploy:staging
+      {% if use_d1 %}
+      migrations-script: migrations:staging
+      {% endif %}
+      node-version: "{{ node_version }}"
+    secrets:
+      cloudflare-api-token: ${{ '{{' }} secrets.CLOUDFLARE_API_TOKEN {{ '}}' }}
+      cloudflare-account-id: ${{ '{{' }} secrets.CLOUDFLARE_ACCOUNT_ID {{ '}}' }}
+
+  production:
+    needs: staging
+    uses: {{ github_owner }}/cloudflare-worker-template/.github/workflows/worker-deploy.yml@v1
+    with:
+      environment: production
+      deploy-script: deploy
+      {% if use_d1 %}
+      migrations-script: migrations:prod
+      {% endif %}
+      node-version: "{{ node_version }}"
+    secrets:
+      cloudflare-api-token: ${{ '{{' }} secrets.CLOUDFLARE_API_TOKEN {{ '}}' }}
+      cloudflare-account-id: ${{ '{{' }} secrets.CLOUDFLARE_ACCOUNT_ID {{ '}}' }}
+{% else %}
+  production:
+    uses: {{ github_owner }}/cloudflare-worker-template/.github/workflows/worker-deploy.yml@v1
+    with:
+      environment: production
+      deploy-script: deploy
+      {% if use_d1 %}
+      migrations-script: migrations:prod
+      {% endif %}
+      node-version: "{{ node_version }}"
+    secrets:
+      cloudflare-api-token: ${{ '{{' }} secrets.CLOUDFLARE_API_TOKEN {{ '}}' }}
+      cloudflare-account-id: ${{ '{{' }} secrets.CLOUDFLARE_ACCOUNT_ID {{ '}}' }}
+{% endif %}

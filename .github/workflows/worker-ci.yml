@@ -1,0 +1,81 @@
+name: Worker CI
+
+# Reusable CI for Generality Cloudflare Worker projects: install, type-check,
+# test (vitest running inside workerd via @cloudflare/vitest-pool-workers),
+# and the shared pre-commit stack (Biome, actionlint, zizmor, mdformat).
+# Consumers call it from a thin workflow — see the scaffolded
+# `.github/workflows/ci.yml`.
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node version to run against.
+        type: string
+        default: "22"
+      runs-on:
+        description: Runner to execute on.
+        type: string
+        default: ubuntu-latest
+      working-directory:
+        description: >
+          Directory holding package.json. Defaults to the repo root; set to a
+          subdirectory for a repo where the Worker isn't at the top.
+        type: string
+        default: "."
+      run-precommit:
+        description: Also run the pre-commit stack.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Type-check and test
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # uvx runs pre-commit without the project needing any Python setup of
+      # its own; the pinned interpreter matches the scaffold's
+      # default_language_version so hook environments resolve.
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        if: ${{ inputs.run-precommit }}
+        with:
+          python-version: "3.12"
+
+      - name: Cache pre-commit environments
+        if: ${{ inputs.run-precommit }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-1|${{ runner.os }}|${{ hashFiles(format('{0}/.pre-commit-config.yaml', inputs.working-directory)) }}
+
+      - name: Pre-commit (Biome, actionlint, zizmor, mdformat)
+        if: ${{ inputs.run-precommit }}
+        env:
+          GH_TOKEN: ${{ github.token }} # lets zizmor's online checks query the GitHub API
+        run: uvx pre-commit run --show-diff-on-failure --color=always --all-files --hook-stage manual

@@ -1,0 +1,40 @@
+{% if use_d1 or use_r2 %}
+// Bindings declared in wrangler.toml, merged into the global `Cloudflare.Env`
+// that handlers and tests share. Keep in sync with wrangler.toml.
+declare global {
+  namespace Cloudflare {
+    interface Env {
+      {% if use_d1 %}
+      DB: D1Database;
+      {% endif %}
+      {% if use_r2 %}
+      BUCKET: R2Bucket;
+      {% endif %}
+    }
+  }
+}
+
+{% endif %}
+export default {
+  async fetch(request: Request, _env: Cloudflare.Env, _ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    // The deploy pipeline smoke-tests this endpoint after every deploy — keep
+    // it cheap and dependency-free.
+    if (request.method === "GET" && url.pathname === "/health") {
+      return Response.json({ status: "ok" });
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
+{% if use_cron %}
+
+  async scheduled(
+    _controller: ScheduledController,
+    _env: Cloudflare.Env,
+    _ctx: ExecutionContext,
+  ): Promise<void> {
+    // Runs on the cron schedule declared per environment in wrangler.toml.
+  },
+{% endif %}
+} satisfies ExportedHandler<Cloudflare.Env>;

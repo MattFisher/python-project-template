@@ -1,0 +1,117 @@
+name: Bump v1
+
+# Moves the `v1` major tag to a published release, because every consumer pins
+# `@v1` and that tag is what actually ships a change to them.
+#
+# Deliberately NOT triggered on push to main. `v1` is the deploy: moving it on
+# merge would give every consumer the new CI with nothing in between, and the
+# reusable workflows have no coverage beyond the smoke jobs in template-ci.
+# Cutting a release is the point where a human is already exercising judgement,
+# so that is where the tag moves.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bump-v1
+  cancel-in-progress: false # never abandon a half-done tag move
+
+jobs:
+  bump:
+    name: Move v1 to the released commit
+    runs-on: ubuntu-latest
+    # Skip anything that isn't a stable 1.x release: a v2 tag must not drag v1
+    # forward onto a breaking change, and a prerelease is by definition not what
+    # consumers pinned to `@v1` should receive.
+    if: >-
+      ${{ !github.event.release.prerelease
+          && startsWith(github.event.release.tag_name, 'v1.') }}
+    permissions:
+      # Scoped to this job so the rest of the workflow stays read-only.
+      contents: write # move the v1 tag
+    steps:
+      # No checkout on purpose: moving a ref needs the API, not a working copy,
+      # and skipping it avoids persisting credentials on disk for a job that
+      # holds the one token able to rewrite what every consumer runs.
+      - name: Refuse to move v1 off main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # compare main...SHA describes SHA relative to main: "identical" when
+          # it is the tip, "behind" when it is an ancestor. Anything else means
+          # the release was cut from a commit that never landed on main, and v1
+          # would start pointing at code no one reviewed there.
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${RELEASE_SHA}" --jq .status)
+          case "$status" in
+            identical | behind)
+              echo "released commit is contained in main (status: $status)"
+              ;;
+            *)
+              echo "::error::released commit ${RELEASE_SHA} is not contained in main (status: ${status})"
+              exit 1
+              ;;
+          esac
+
+      - name: Require a changelog entry for this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Fetched rather than checked out, to keep this job free of a working
+          # copy and its credentials. Read at the released commit, not at main,
+          # so a later push can't make a bad release look documented.
+          gh api "repos/${GITHUB_REPOSITORY}/contents/CHANGELOG.md?ref=${RELEASE_SHA}" \
+            --jq .content | base64 -d > /tmp/CHANGELOG.md
+          python3 - "$RELEASE_TAG" /tmp/CHANGELOG.md <<'PY'
+          import re
+          import sys
+
+          tag, path = sys.argv[1], sys.argv[2]
+          version = tag.lstrip("v")
+          text = open(path, encoding="utf-8").read()
+
+          # Split on level-2 headings, keeping each heading with its body. Match
+          # headings by prefix, not equality: a released section is written
+          # "## [1.6.0] - 2026-07-27", so the date is part of the heading line.
+          sections = re.split(r"^## ", text, flags=re.M)[1:]
+          by_heading = {s.split("\n", 1)[0].strip(): s.split("\n", 1)[-1] for s in sections}
+
+          def body_for(prefix: str) -> str | None:
+              for heading, body in by_heading.items():
+                  if heading.startswith(prefix):
+                      return body
+              return None
+
+          if body_for(f"[{version}]") is None:
+              sys.exit(
+                  f"::error::CHANGELOG.md has no '## [{version}]' section. "
+                  f"Releasing {tag} without describing it leaves consumers to read the git log."
+              )
+
+          unreleased = body_for("[Unreleased]") or ""
+          leftover = [ln for ln in unreleased.splitlines() if ln.strip()]
+          if leftover:
+              sys.exit(
+                  "::error::CHANGELOG.md still has entries under [Unreleased], so this "
+                  f"release ships changes it does not describe:\n  " + "\n  ".join(leftover)
+              )
+
+          print(f"changelog documents {version}, and [Unreleased] is empty")
+          PY
+
+      - name: Move v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/v1" \
+            -f sha="${RELEASE_SHA}" -F force=true
+          echo "v1 -> ${RELEASE_SHA}"

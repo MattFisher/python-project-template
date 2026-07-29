@@ -1,0 +1,135 @@
+name: Template Update
+
+# Reusable workflow that runs `copier update` against this template and opens a
+# PR with whatever changed. Consumers call it from a thin workflow — see the
+# scaffolded `.github/workflows/template-update.yml`.
+#
+# Scope: this only matters for *scaffolded files* (.pre-commit-config.yaml,
+# biome.json, wrangler.toml, package.json, ...), which are copies that drift. Changes to the
+# reusable workflows themselves need no update run at all — consumers pin
+# `@v1`, so moving that tag propagates them immediately.
+#
+# Copier does a three-way merge between the old template output, the new
+# output, and the project's local edits, so hand-made changes survive. Where
+# that merge conflicts it leaves conflict markers in the tree; set
+# `resolve-conflicts-with-claude` to have Claude attempt them, otherwise the PR
+# is opened with the markers intact and labelled for a human.
+on:
+  workflow_call:
+    inputs:
+      template-ref:
+        description: Template ref to update to.
+        type: string
+        default: v1
+      branch:
+        description: Branch to open the pull request from.
+        type: string
+        default: chore/template-update
+      resolve-conflicts-with-claude:
+        description: >
+          On merge conflicts, run the Claude Code action to resolve them.
+          Requires the anthropic-api-key secret. Off by default: copier's merge
+          is deterministic and usually clean, and a conflict is often worth a
+          human's attention anyway.
+        type: boolean
+        default: false
+    secrets:
+      anthropic-api-key:
+        description: Needed only when resolve-conflicts-with-claude is true.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Apply template updates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the update branch
+      pull-requests: write # open the PR
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history: copier needs the commit the project was last updated
+          # from to compute its three-way merge.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Check the project is copier-managed
+        run: |
+          if [ ! -f .copier-answers.yml ]; then
+            echo "::error::No .copier-answers.yml — this project was not scaffolded by the template, so copier update has no baseline to merge from. Adopt the template first (see the template README)."
+            exit 1
+          fi
+
+      - name: Run copier update
+        env:
+          REF: ${{ inputs.template-ref }} # via env to avoid run-step template injection
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          uvx copier update --defaults --trust --vcs-ref "$REF"
+
+      - name: Detect changes and conflicts
+        id: state
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date with the template."
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          # Copier leaves ordinary conflict markers in the working tree.
+          if git grep -lI -e '^<<<<<<< ' -- . > /tmp/conflicted.txt 2>/dev/null && [ -s /tmp/conflicted.txt ]; then
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+            echo "Conflicted files:"; cat /tmp/conflicted.txt
+          else
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve conflicts with Claude
+        if: >
+          steps.state.outputs.changed == 'true'
+          && steps.state.outputs.conflicts == 'true'
+          && inputs.resolve-conflicts-with-claude
+        uses: anthropics/claude-code-action@c96dd0a84e0232ab86947fca5fe34f1caae8792f # v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic-api-key }}
+          prompt: >
+            `copier update` left git conflict markers after merging template
+            changes into this project. Resolve every conflict, keeping the
+            project's local customisations while adopting the template's
+            intent. Do not change anything outside the conflicted regions, and
+            leave no conflict markers behind.
+
+      - name: Open pull request
+        if: steps.state.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+          REF: ${{ inputs.template-ref }}
+          CONFLICTS: ${{ steps.state.outputs.conflicts }}
+        run: |
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: apply template updates from $REF"
+          git push --force-with-lease \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+
+          BODY="Applied by \`copier update --vcs-ref $REF\`."
+          if [ "$CONFLICTS" = "true" ]; then
+            BODY="$BODY
+
+          :warning: The merge conflicted. Check for leftover conflict markers before merging."
+          fi
+          BODY="$BODY
+
+          Note: opened with the default \`GITHUB_TOKEN\`, so GitHub will not run
+          this repository's own workflows on it. Close and reopen the PR, or push
+          a commit, to get CI to run."
+
+          gh pr create --head "$BRANCH" --title "chore: apply template updates from $REF" --body "$BODY" \
+            || gh pr edit "$BRANCH" --body "$BODY"

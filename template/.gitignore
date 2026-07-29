@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Wrangler local state (simulated D1/R2 data, dev caches)
+.wrangler/
+
+# Local secrets for `wrangler dev` — never commit
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+
+# Build / coverage output
+dist/
+coverage/
+
+# Claude Code per-user overrides (the shared .claude/settings.json is committed)
+.claude/settings.local.json
+
+# Editors
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

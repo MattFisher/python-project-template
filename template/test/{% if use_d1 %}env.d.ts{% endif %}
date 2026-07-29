@@ -1,0 +1,7 @@
+// Test-only binding, provided by vitest.config.ts so the setup file can apply
+// ./migrations. Merged into the same global Cloudflare.Env the Worker uses.
+declare namespace Cloudflare {
+  interface Env {
+    TEST_MIGRATIONS: import("cloudflare:test").D1Migration[];
+  }
+}

@@ -1,0 +1,33 @@
+{% if use_d1 %}
+import path from "node:path";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig(async () => {
+  // Read ./migrations at config time and hand them to the Workers runtime as
+  // a binding; test/apply-migrations.ts applies them before tests run. Tests
+  // therefore exercise the real migrations, not a hand-maintained schema.
+  const migrations = await readD1Migrations(path.join(__dirname, "migrations"));
+
+  return {
+    plugins: [
+      cloudflareTest({
+        wrangler: { configPath: "./wrangler.toml" },
+        miniflare: {
+          bindings: { TEST_MIGRATIONS: migrations },
+        },
+      }),
+    ],
+    test: {
+      setupFiles: ["./test/apply-migrations.ts"],
+    },
+  };
+});
+{% else %}
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.toml" } })],
+});
+{% endif %}

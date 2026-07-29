@@ -1,0 +1,106 @@
+name: Worker Deploy
+
+# Reusable deploy for Generality Cloudflare Worker projects: optionally apply
+# D1 migrations, `wrangler deploy` a named wrangler environment (via the
+# project's npm scripts), then smoke-test a health URL. Consumers call it once
+# per environment from the scaffolded `.github/workflows/deploy.yml`.
+#
+# Each call runs inside the GitHub environment named by `environment`, which
+# is where approval gates live: add required reviewers to the `production`
+# GitHub environment and the staging -> production hand-off becomes manual.
+# The smoke test reads the `HEALTH_URL` *variable* from that same GitHub
+# environment and is skipped when it isn't set.
+#
+# Secrets are passed explicitly rather than via `secrets: inherit` (zizmor
+# flags inherit, with reason), which means they resolve in the caller's
+# context: store CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID as *repository*
+# secrets. Per-environment tokens need `secrets: inherit` in the caller — a
+# deliberate, per-repo choice.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: >
+          GitHub environment for the deploy job. Conventionally matches the
+          wrangler environment the deploy-script targets.
+        type: string
+        required: true
+      deploy-script:
+        description: npm script that runs `wrangler deploy --env <env>`.
+        type: string
+        default: deploy
+      migrations-script:
+        description: >
+          npm script that applies D1 migrations before the deploy. Empty
+          skips the step (projects without D1).
+        type: string
+        default: ""
+      node-version:
+        description: Node version to run against.
+        type: string
+        default: "22"
+      working-directory:
+        description: Directory holding package.json.
+        type: string
+        default: "."
+    secrets:
+      cloudflare-api-token:
+        description: API token with Workers (and D1, if used) edit permissions.
+        required: true
+      cloudflare-account-id:
+        description: Cloudflare account id.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Before the deploy, so new code never runs against an old schema. The
+      # reverse hazard (old code briefly running against the new schema) is
+      # the tolerable one — write migrations to be backwards-compatible for
+      # one deploy.
+      - name: Apply D1 migrations
+        if: ${{ inputs.migrations-script != '' }}
+        env:
+          SCRIPT: ${{ inputs.migrations-script }} # via env to avoid run-step template injection
+          CLOUDFLARE_API_TOKEN: ${{ secrets.cloudflare-api-token }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.cloudflare-account-id }}
+        run: npm run "$SCRIPT"
+
+      - name: Deploy Worker
+        env:
+          SCRIPT: ${{ inputs.deploy-script }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.cloudflare-api-token }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.cloudflare-account-id }}
+        run: npm run "$SCRIPT"
+
+      - name: Smoke test
+        if: ${{ vars.HEALTH_URL != '' }}
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          sleep 5 # let the new version propagate
+          curl -fsS --retry 3 --retry-delay 5 "$HEALTH_URL"

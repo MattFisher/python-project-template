@@ -1,0 +1,146 @@
+name: Template CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render and validate variants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+
+      - name: Render both variants and check their contents
+        # --vcs-ref=HEAD on every copier call is load-bearing. Given a local git
+        # repo, copier renders the latest *tag* by default, not the checkout --
+        # so without this the whole job silently validates the released template
+        # instead of the branch under review.
+        run: |
+          set -euo pipefail
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
+            --data project_name="sample-min" \
+            --data project_description="A minimal sample worker" \
+            . /tmp/out-min
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
+            --data project_name="sample-full" \
+            --data project_description="A full sample worker" \
+            --data use_staging=true --data use_d1=true \
+            --data use_r2=true --data use_cron=true \
+            . /tmp/out-full
+
+          for out in /tmp/out-min /tmp/out-full; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$out/package.json"
+            python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))" "$out/wrangler.toml"
+            python3 -c "import yaml,glob,sys; [yaml.safe_load(open(f)) for f in glob.glob(sys.argv[1]+'/.github/workflows/*.yml')]" "$out"
+            test -f "$out/.copier-answers.yml"
+            test -f "$out/.pre-commit-config.yaml"
+            # The hook is useless if copier drops the executable bit, and it
+            # must at least parse as shell.
+            test -x "$out/.claude/hooks/session-start.sh"
+            bash -n "$out/.claude/hooks/session-start.sh"
+          done
+
+          # Feature files present for full, absent for min
+          for f in migrations/0001_init.sql cors.json test/env.d.ts test/apply-migrations.ts; do
+            test -e "/tmp/out-full/$f"
+            test ! -e "/tmp/out-min/$f"
+          done
+
+          # Environments: full has staging everywhere, min nowhere; both
+          # repeat bindings per environment (wrangler envs don't inherit).
+          grep -q '\[env.staging\]' /tmp/out-full/wrangler.toml
+          ! grep -q '\[env.staging\]' /tmp/out-min/wrangler.toml
+          grep -q '\[\[env.production.d1_databases\]\]' /tmp/out-full/wrangler.toml
+          grep -q '\[\[env.staging.d1_databases\]\]' /tmp/out-full/wrangler.toml
+          grep -q 'needs: staging' /tmp/out-full/.github/workflows/deploy.yml
+          ! grep -q 'staging' /tmp/out-min/.github/workflows/deploy.yml
+          grep -q 'migrations-script: migrations:prod' /tmp/out-full/.github/workflows/deploy.yml
+          ! grep -q 'migrations-script' /tmp/out-min/.github/workflows/deploy.yml
+
+          # use_typos defaults on, and answering no drops the hook
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
+            --data project_name="sample-no-typos" \
+            --data project_description="A sample without the typos hook" \
+            --data use_typos=false \
+            . /tmp/out-no-typos
+          grep -q "crate-ci/typos" /tmp/out-min/.pre-commit-config.yaml
+          ! grep -q "crate-ci/typos" /tmp/out-no-typos/.pre-commit-config.yaml
+
+          # answering no to the update workflow drops it but KEEPS the answers
+          # file, so `copier update` by hand still works
+          uvx copier copy --trust --defaults --vcs-ref=HEAD \
+            --data project_name="sample-no-auto-update" \
+            --data project_description="A sample without the update workflow" \
+            --data use_template_update=false \
+            . /tmp/out-no-auto-update
+          test -f /tmp/out-min/.github/workflows/template-update.yml
+          test ! -e /tmp/out-no-auto-update/.github/workflows/template-update.yml
+          test -f /tmp/out-no-auto-update/.copier-answers.yml
+
+          echo "All variants rendered and validated."
+
+      - name: Install, type-check, and test each rendered project
+        # Fresh `npm install` on purpose (renders have no lockfile): this is
+        # the check that the template's version ranges still resolve to a
+        # compatible set — exactly what the first install in a new project
+        # will do.
+        run: |
+          set -euo pipefail
+          for out in /tmp/out-min /tmp/out-full; do
+            echo "::group::$out"
+            ( cd "$out" && npm install --no-audit --no-fund && npm run typecheck && npm test )
+            echo "::endgroup::"
+          done
+
+      - name: Run each rendered project's own hooks
+        # The actual dogfooding: rendering and grepping proves biome.json is
+        # present and parses; it cannot tell you that Biome accepts what it
+        # says. pre-commit enumerates through `git ls-files`, so the render has
+        # to be a git repo with everything staged or every hook silently skips.
+        env:
+          GH_TOKEN: ${{ github.token }} # lets zizmor's online checks query the GitHub API
+        run: |
+          set -euo pipefail
+          for out in /tmp/out-min /tmp/out-full; do
+            echo "::group::pre-commit in $out"
+            git -C "$out" init -q
+            git -C "$out" add -A
+            ( cd "$out" && uvx pre-commit run --all-files --show-diff-on-failure --hook-stage manual )
+            echo "::endgroup::"
+          done
+
+  # The reusable workflow is `workflow_call`-only, so nothing in this repo
+  # would ever execute it otherwise: a change would ship straight to every
+  # consumer on the next `v1` move, untested. This calls it for real against
+  # the fixture under tests/smoke/. The fixture is deliberately minimal and is
+  # NOT a mirror of the scaffold -- the render job already checks the
+  # scaffold's content. Its job is to prove the workflow itself runs end to
+  # end. run-precommit is off because pre-commit resolves files from the git
+  # root -- it would lint the whole template repo with the fixture's config;
+  # the render job's dogfood step covers the pre-commit path instead.
+  smoke-worker-ci:
+    name: Smoke-test worker-ci.yml
+    uses: ./.github/workflows/worker-ci.yml
+    with:
+      working-directory: tests/smoke/worker
+      run-precommit: false

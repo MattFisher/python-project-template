@@ -1,0 +1,75 @@
+# {{ project_name }}
+
+{{ project_description }}
+
+## Development
+
+```bash
+npm install
+npm run dev        # local Worker at http://localhost:8787
+npm test           # vitest, running inside workerd against simulated bindings
+npm run typecheck
+uvx pre-commit install   # optional: run the lint stack on every commit
+```
+
+The top level of `wrangler.toml` is local development and tests only — it points at `-dev` resources that wrangler simulates on disk, so nothing you do locally touches deployed data. Deployed targets are the named environments (`[env.production]`{% if use_staging %}, `[env.staging]`{% endif %}).
+{% if use_d1 %}
+
+## Database
+
+Migrations live in `migrations/` as numbered SQL files; tests apply them to the simulated database automatically (see `test/apply-migrations.ts`).
+
+```bash
+npm run migrations:local     # apply to the local dev database
+{% if use_staging %}
+npm run migrations:staging   # apply to the deployed staging database
+{% endif %}
+npm run migrations:prod      # apply to the deployed production database
+```
+
+The deploy pipeline applies migrations before each deploy, so the remote commands are rarely needed by hand.
+{% endif %}
+{% if use_r2 %}
+
+## R2 CORS
+
+R2 CORS rules live on the bucket, not in `wrangler.toml`. Edit `cors.json` and apply it per bucket:
+
+```bash
+npx wrangler r2 bucket cors set {{ project_name }} --file cors.json
+{% if use_staging %}
+npx wrangler r2 bucket cors set {{ project_name }}-staging --file cors.json
+{% endif %}
+```
+{% endif %}
+{% if use_cron %}
+
+## Scheduled handler
+
+The cron schedule is declared per environment in `wrangler.toml`. Exercise it locally with:
+
+```bash
+npx wrangler dev --test-scheduled
+curl "http://localhost:8787/__scheduled?cron=0+3+*+*+*"
+```
+{% endif %}
+
+## Deployment
+
+Deploys run from CI on every push to main{% if use_staging %} — staging first, then production. Add required reviewers to the `production` GitHub environment to make that hand-off a manual approval gate{% endif %}. Two repository secrets are required:
+
+- `CLOUDFLARE_API_TOKEN` — token with Workers{% if use_d1 %} + D1{% endif %} edit permissions
+- `CLOUDFLARE_ACCOUNT_ID` — the Cloudflare account id
+
+Set a `HEALTH_URL` variable on each GitHub environment (the Worker's `/health` endpoint) to enable the post-deploy smoke test.
+
+Manual deploys, if you must:
+
+```bash
+{% if use_staging %}
+npm run deploy:staging
+{% endif %}
+npm run deploy   # production
+```
+
+Linting (Biome, [zizmor](https://docs.zizmor.sh/), actionlint, mdformat) runs via [pre-commit](https://pre-commit.com); CI runs the same stack plus `tsc --noEmit` and vitest via the shared [`worker-ci`](https://github.com/{{ github_owner }}/cloudflare-worker-template) reusable workflow.

@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Bump the SHA-pinned GitHub Actions (opens PRs with changelogs + the new pin).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # don't adopt a release until it's had time to be vetted/yanked
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Keep the smoke fixture's lockfile current so the reusable workflows are
+  # exercised against the dependency versions fresh scaffolds will resolve.
+  - package-ecosystem: npm
+    directory: /tests/smoke/worker
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        patterns: ["*"]

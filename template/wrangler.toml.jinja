@@ -1,0 +1,102 @@
+# Top-level configuration is LOCAL DEVELOPMENT AND TESTS ONLY: it is what
+# `wrangler dev` and the vitest workers pool read, and it points at -dev
+# resources that wrangler simulates on disk. Deployed targets are the named
+# environments below, so a deploy always says which environment it means
+# (`npm run deploy`{% if use_staging %}, `npm run deploy:staging`{% endif %}) and local development can never
+# bind production resources by accident.
+#
+# Two wrangler gotchas encoded here:
+#   1. Named environments DO NOT inherit bindings ([[d1_databases]],
+#      [[r2_buckets]], [triggers], ...) from the top level. Every binding
+#      must be repeated per environment, pointing at that environment's own
+#      resources.
+#   2. Cron triggers fire in EVERY deployed environment that declares them.
+#      A cron that must not run twice (sends email, hits a paid API, ...)
+#      should be declared only under [env.production.triggers].
+
+name = "{{ project_name }}"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+# Inherited by all environments.
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+{% if use_d1 %}
+# Local development/test database — simulated under .wrangler/, so the id is
+# a placeholder that never has to exist.
+[[d1_databases]]
+binding = "DB"
+database_name = "{{ project_name }}-dev"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+{% endif %}
+{% if use_r2 %}
+# Local development/test bucket — simulated locally.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "{{ project_name }}-dev"
+
+{% endif %}
+{% if use_cron %}
+# Local only (the top level is never deployed). Exercise the scheduled
+# handler with `npx wrangler dev --test-scheduled`, then:
+#   curl "http://localhost:8787/__scheduled?cron=0+3+*+*+*"
+[triggers]
+crons = ["0 3 * * *"]
+
+{% endif %}
+{% if use_staging %}
+[env.staging]
+name = "{{ project_name }}-staging"
+
+{% if use_d1 %}
+# Create with `npx wrangler d1 create {{ project_name }}-staging` and paste
+# the returned database_id here.
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "{{ project_name }}-staging"
+database_id = "TODO"
+migrations_dir = "migrations"
+
+{% endif %}
+{% if use_r2 %}
+# Create with `npx wrangler r2 bucket create {{ project_name }}-staging`.
+[[env.staging.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "{{ project_name }}-staging"
+
+{% endif %}
+{% if use_cron %}
+# Delete this block if the cron must not also run in staging (gotcha 2).
+[env.staging.triggers]
+crons = ["0 3 * * *"]
+
+{% endif %}
+{% endif %}
+[env.production]
+name = "{{ project_name }}"
+{% if use_d1 %}
+
+# Create with `npx wrangler d1 create {{ project_name }}` and paste the
+# returned database_id here.
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "{{ project_name }}"
+database_id = "TODO"
+migrations_dir = "migrations"
+{% endif %}
+{% if use_r2 %}
+
+# Create with `npx wrangler r2 bucket create {{ project_name }}`.
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "{{ project_name }}"
+{% endif %}
+{% if use_cron %}
+
+[env.production.triggers]
+crons = ["0 3 * * *"]
+{% endif %}
