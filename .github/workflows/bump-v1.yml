@@ -57,6 +57,55 @@ jobs:
               ;;
           esac
 
+      - name: Require a changelog entry for this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Fetched rather than checked out, to keep this job free of a working
+          # copy and its credentials. Read at the released commit, not at main,
+          # so a later push can't make a bad release look documented.
+          gh api "repos/${GITHUB_REPOSITORY}/contents/CHANGELOG.md?ref=${RELEASE_SHA}" \
+            --jq .content | base64 -d > /tmp/CHANGELOG.md
+          python3 - "$RELEASE_TAG" /tmp/CHANGELOG.md <<'PY'
+          import re
+          import sys
+
+          tag, path = sys.argv[1], sys.argv[2]
+          version = tag.lstrip("v")
+          text = open(path, encoding="utf-8").read()
+
+          # Split on level-2 headings, keeping each heading with its body. Match
+          # headings by prefix, not equality: a released section is written
+          # "## [1.6.0] - 2026-07-27", so the date is part of the heading line.
+          sections = re.split(r"^## ", text, flags=re.M)[1:]
+          by_heading = {s.split("\n", 1)[0].strip(): s.split("\n", 1)[-1] for s in sections}
+
+          def body_for(prefix: str) -> str | None:
+              for heading, body in by_heading.items():
+                  if heading.startswith(prefix):
+                      return body
+              return None
+
+          if body_for(f"[{version}]") is None:
+              sys.exit(
+                  f"::error::CHANGELOG.md has no '## [{version}]' section. "
+                  f"Releasing {tag} without describing it leaves consumers to read the git log."
+              )
+
+          unreleased = body_for("[Unreleased]") or ""
+          leftover = [ln for ln in unreleased.splitlines() if ln.strip()]
+          if leftover:
+              sys.exit(
+                  "::error::CHANGELOG.md still has entries under [Unreleased], so this "
+                  f"release ships changes it does not describe:\n  " + "\n  ".join(leftover)
+              )
+
+          print(f"changelog documents {version}, and [Unreleased] is empty")
+          PY
+
       - name: Move v1
         env:
           GH_TOKEN: ${{ github.token }}
