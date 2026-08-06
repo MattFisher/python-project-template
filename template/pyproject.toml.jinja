@@ -27,7 +27,7 @@ Issues = "https://github.com/{{ github_owner }}/{{ project_name }}/issues"
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=7.0.0",
-    "mypy>=1.10",
+    "basedpyright>=1.39",
     "pre-commit>=4.0.0",
 ]
 
@@ -82,10 +82,12 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"] # tests don't need docstring linting
 
-[tool.mypy]
-python_version = "{{ python_version }}"
-strict = true
-ignore_missing_imports = true # third-party libs are often untyped
+[tool.basedpyright]
+pythonVersion = "{{ python_version }}"
+# "strict" (pyright's), not basedpyright's stricter default "recommended" —
+# the based-only rules (reportAny etc.) are opt-in per project.
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false # third-party libs are often untyped
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

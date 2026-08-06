@@ -18,6 +18,11 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 - This changelog, backfilled from git history.
 - `bump-v1.yml` refuses to move `v1` for a release that has no changelog section, or that leaves entries under `[Unreleased]`. The check runs before the tag moves, so an undocumented release delivers nothing to consumers.
 
+### Changed
+
+- Type checking is now [basedpyright](https://docs.basedpyright.com/) instead of mypy: pip-installable with no Node bootstrap (uv locks it like any other dev dependency), faster, and it matches the Pyright-based language servers editors actually run, so CI enforces the same diagnostics the editor shows. Scaffolds get `[tool.basedpyright]` with `typeCheckingMode = "strict"` — deliberately pyright's `strict`, not basedpyright's stricter `recommended` default — and `reportMissingTypeStubs = false` standing in for mypy's `ignore_missing_imports`. The scaffolded `.gitignore` drops the mypy cache entries. Existing projects pick all this up on their next `copier update`.
+- `python-ci.yml`'s type-check step runs basedpyright when the project's environment has it and falls back to mypy (with a deprecation note in the log) when it doesn't — `v1` is a moving tag, so the step keeps working for projects scaffolded before this change until they update. The `mypy-paths` input is deprecated in favour of `typecheck-paths`; it still works, and wins when set.
+
 ## [1.6.0] - 2026-07-27
 
 The largest release so far: an optional TypeScript side, automated template updates, and a substantial pass over how the template verifies itself.

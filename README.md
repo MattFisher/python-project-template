@@ -8,9 +8,9 @@ standard so the repos don't drift:
   `.python-version`
 - **hatchling** build backend for libraries; apps stay `package = false`
 - **pre-commit** stack: ruff (lint + format), [zizmor](https://docs.zizmor.sh/)
-  (Actions security), mdformat, optionally typos — plus **mypy** (always) and
-  **pytest**
-- Shared **`python-ci`** reusable workflow (`uv sync` → mypy → pytest →
+  (Actions security), mdformat, optionally typos — plus
+  **[basedpyright](https://docs.basedpyright.com/)** (always) and **pytest**
+- Shared **`python-ci`** reusable workflow (`uv sync` → basedpyright → pytest →
   pre-commit), so every repo's CI is a three-line caller
 - Optional TypeScript/JavaScript side: **Biome** (lint + format) in the
   pre-commit stack, plus a shared **`node-ci`** workflow for type-check and
