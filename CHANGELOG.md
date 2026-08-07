@@ -14,6 +14,10 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 
 ## [Unreleased]
 
+### Fixed
+
+- The scaffolded typos hook skips `.copier-answers.yml`. The file is generated, and its `_commit` is whatever ref the last update used — when that is a short SHA rather than a tag, its leading hex characters are a coin flip away from a word typos reads as misspelled, and `ba338ef` duly tripped `ba` → `by`, `be`. Nothing in the file is prose, so checking it could only ever produce false positives, on a schedule nobody controls.
+
 ## [1.8.1] - 2026-08-07
 
 Repairs 1.8.0, which shipped a lightweight tag and left every project unable to update. Consumers land on 1.8.1 rather than 1.8.0; the contents are the same bar this fix.
