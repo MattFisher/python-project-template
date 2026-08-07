@@ -57,6 +57,32 @@ jobs:
               ;;
           esac
 
+      - name: Require the release tag to be annotated
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Once v1 moves here it shares a commit with this release tag, and
+          # copier reads a template's version with `git describe --tags`. That
+          # prefers an annotated tag over a lightweight one, and falls back to
+          # the newest when they tie -- so with both lightweight it answers
+          # "v1", copier parses that as version 1, and every consumer above
+          # 1.0.0 fails `copier update` with "Downgrades are not supported".
+          # Not just the scheduled runs: an explicit `--vcs-ref v1.8.0` reads
+          # the same commit and fails identically, which strands every project.
+          #
+          # An annotated release tag outranks the lightweight v1 that the Move
+          # step creates below, so describe answers "v1.8.0" and updates work.
+          # Both annotated would break again -- v1 is re-tagged every release,
+          # so it would always be the newer of the two.
+          type=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq .object.type)
+          if [ "$type" != "tag" ]; then
+            echo "::error::${RELEASE_TAG} is a lightweight tag. Moving v1 onto it would break \`copier update\` for every consumer. Re-cut it as annotated, then re-publish the release: git tag -f -a ${RELEASE_TAG} -m ${RELEASE_TAG} <sha> && git push --force origin ${RELEASE_TAG}"
+            exit 1
+          fi
+          echo "${RELEASE_TAG} is annotated, so it outranks the lightweight v1"
+
       - name: Require a changelog entry for this release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -7,11 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 Two things are worth knowing about how versions work here, because this repo ships CI rather than a package:
 
 - **`v1` is a moving major tag.** Consumers pin `python-ci.yml@v1` and `node-ci.yml@v1`, so publishing a release is what actually delivers a change to them — `.github/workflows/bump-v1.yml` moves `v1` onto each published `v1.x` release. Changes to the reusable workflows reach every project the moment that happens, with no `copier update` needed.
+- **Release tags must be annotated; `v1` must stay lightweight.** They end up on the same commit, and copier reads a template's version with `git describe --tags`, which prefers the annotated tag. Get this backwards and copier reads the version as `1` and refuses every consumer's update as a downgrade. `bump-v1.yml` creates `v1` lightweight and refuses to move it onto a lightweight release tag, so cut releases from a tag made with `git tag -a`.
 - **Changes to *scaffolded* files reach projects only through `copier update`.** `.pre-commit-config.yaml`, `biome.json`, `pyproject.toml` and friends are copied at scaffold time, so a project picks them up when it runs an update — automatically if it opted into `template-update.yml`.
 
 Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact, so they describe what each tag contained rather than having been written alongside it.
 
 ## [Unreleased]
+
+## [1.8.1] - 2026-08-07
+
+Cut as an annotated tag, which is also what fixes 1.8.0's breakage: the annotated tag outranks the lightweight `v1` beside it, so `copier update` resolves the version again. Consumers land on 1.8.1 rather than 1.8.0; the contents are the same bar this fix.
+
+### Fixed
+
+- `bump-v1.yml` refuses to move `v1` onto a lightweight release tag. `v1` ends up on the same commit as the release tag, and copier reads a template's version with `git describe --tags`, which prefers an annotated tag and otherwise takes the newest — so with both lightweight it answered `v1`, copier parsed that as version `1`, and every consumer above 1.0.0 failed `copier update` with "Downgrades are not supported". This stranded projects completely: an explicit `--vcs-ref v1.8.0` reads the same commit and failed identically, so there was no working update path at all.
 
 ## [1.8.0] - 2026-08-07
 
@@ -168,4 +177,5 @@ The largest release so far: an optional TypeScript side, automated template upda
 [1.6.0]: https://github.com/MattFisher/python-project-template/compare/v1.5.2...v1.6.0
 [1.7.0]: https://github.com/MattFisher/python-project-template/compare/v1.6.0...v1.7.0
 [1.8.0]: https://github.com/MattFisher/python-project-template/compare/v1.7.0...v1.8.0
-[unreleased]: https://github.com/MattFisher/python-project-template/compare/v1.8.0...HEAD
+[1.8.1]: https://github.com/MattFisher/python-project-template/compare/v1.8.0...v1.8.1
+[unreleased]: https://github.com/MattFisher/python-project-template/compare/v1.8.1...HEAD
