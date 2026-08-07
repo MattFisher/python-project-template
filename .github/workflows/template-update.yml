@@ -105,6 +105,25 @@ jobs:
             intent. Do not change anything outside the conflicted regions, and
             leave no conflict markers behind.
 
+      # A template update can change pyproject.toml's dependencies, which
+      # leaves uv.lock stale. Consumers' CI starts with `uv sync --locked`, so
+      # the PR would fail there before reaching a single real check. Relock
+      # after the merge (and after any conflict resolution) so the PR is
+      # internally consistent.
+      - name: Relock dependencies
+        if: steps.state.outputs.changed == 'true'
+        run: |
+          if [ ! -f uv.lock ]; then
+            echo "No uv.lock at the repository root; nothing to relock."
+            exit 0
+          fi
+          # An unresolved conflict leaves markers in pyproject.toml, which uv
+          # cannot parse. The PR still opens in that case, carrying its own
+          # conflict warning, so a stale lock is not worth failing the job for.
+          if ! uv lock; then
+            echo "::warning::uv lock failed, so uv.lock may be stale in this PR. Check pyproject.toml for unresolved conflict markers."
+          fi
+
       - name: Open pull request
         if: steps.state.outputs.changed == 'true'
         env:
