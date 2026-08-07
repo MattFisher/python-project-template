@@ -13,6 +13,10 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-07
+
+Swaps the type checker. Consumers pinned to `v1` keep passing without doing anything — the workflow's type-check step falls back to mypy — so the migration happens per project, on its next `copier update`.
+
 ### Changed
 
 - Type checking is now [basedpyright](https://docs.basedpyright.com/) instead of mypy: pip-installable with no Node bootstrap (uv locks it like any other dev dependency), faster, and it matches the Pyright-based language servers editors actually run, so CI enforces the same diagnostics the editor shows. Scaffolds get `[tool.basedpyright]` with `typeCheckingMode = "strict"` — deliberately pyright's `strict`, not basedpyright's stricter `recommended` default — and `reportMissingTypeStubs = false` standing in for mypy's `ignore_missing_imports`. The scaffolded `.gitignore` drops the mypy cache entries. Existing projects pick all this up on their next `copier update`.
@@ -162,4 +166,6 @@ The largest release so far: an optional TypeScript side, automated template upda
 [1.5.1]: https://github.com/MattFisher/python-project-template/compare/v1.5.0...v1.5.1
 [1.5.2]: https://github.com/MattFisher/python-project-template/compare/v1.5.1...v1.5.2
 [1.6.0]: https://github.com/MattFisher/python-project-template/compare/v1.5.2...v1.6.0
-[unreleased]: https://github.com/MattFisher/python-project-template/compare/v1.6.0...HEAD
+[1.7.0]: https://github.com/MattFisher/python-project-template/compare/v1.6.0...v1.7.0
+[1.8.0]: https://github.com/MattFisher/python-project-template/compare/v1.7.0...v1.8.0
+[unreleased]: https://github.com/MattFisher/python-project-template/compare/v1.8.0...HEAD
