@@ -1,8 +1,8 @@
 name: Python CI
 
-# Reusable CI for MattFisher Python projects: uv install, mypy, pytest, and the
-# shared pre-commit stack (ruff + zizmor + mdformat). Consumers call it from a
-# thin workflow — see the scaffolded `.github/workflows/ci.yml`.
+# Reusable CI for MattFisher Python projects: uv install, basedpyright, pytest,
+# and the shared pre-commit stack (ruff + zizmor + mdformat). Consumers call it
+# from a thin workflow — see the scaffolded `.github/workflows/ci.yml`.
 on:
   workflow_call:
     inputs:
@@ -14,10 +14,14 @@ on:
         description: Runner to execute on (lets callers matrix over OSes).
         type: string
         default: ubuntu-latest
-      mypy-paths:
-        description: Paths to type-check with mypy.
+      typecheck-paths:
+        description: Paths to type-check.
         type: string
         default: "src"
+      mypy-paths:
+        description: Deprecated alias of typecheck-paths; wins when set.
+        type: string
+        default: ""
       working-directory:
         description: >
           Directory holding pyproject.toml. Defaults to the repo root; set to a
@@ -50,10 +54,19 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-      - name: Mypy
+      # `v1` is a moving tag, so this step lands on consumers that still have
+      # mypy in their dev dependencies (scaffolds from before the basedpyright
+      # migration). Fall back to mypy for those until they run `copier update`.
+      - name: Type check (basedpyright, or mypy where not yet migrated)
         env:
-          MYPY_PATHS: ${{ inputs.mypy-paths }} # via env to avoid run-step template injection
-        run: uv run mypy $MYPY_PATHS
+          TYPECHECK_PATHS: ${{ inputs.mypy-paths || inputs.typecheck-paths }} # via env to avoid run-step template injection
+        run: |
+          if uv run --no-sync basedpyright --version >/dev/null 2>&1; then
+            uv run basedpyright $TYPECHECK_PATHS
+          else
+            echo "basedpyright not in the project's dependencies; falling back to mypy (deprecated — migrate via 'copier update')"
+            uv run mypy $TYPECHECK_PATHS
+          fi
 
       - name: Pytest
         run: uv run pytest

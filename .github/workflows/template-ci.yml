@@ -162,7 +162,7 @@ jobs:
     uses: ./.github/workflows/python-ci.yml
     with:
       working-directory: tests/smoke/python
-      mypy-paths: src
+      typecheck-paths: src
 
   smoke-node-ci:
     name: Smoke-test node-ci.yml
