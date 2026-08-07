@@ -18,6 +18,10 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 - This changelog, backfilled from git history.
 - `bump-v1.yml` refuses to move `v1` for a release that has no changelog section, or that leaves entries under `[Unreleased]`. The check runs before the tag moves, so an undocumented release delivers nothing to consumers.
 
+### Fixed
+
+- `template-update.yml` runs `uv lock` after the merge, so a template update that changes `pyproject.toml`'s dependencies doesn't open a PR with a stale `uv.lock`. Consumers' CI begins with `uv sync --locked`, so those PRs failed there before reaching a single real check. The step tolerates a failed lock — an unresolved conflict leaves markers `uv` can't parse, and the PR is still worth opening with its existing conflict warning.
+
 ## [1.6.0] - 2026-07-27
 
 The largest release so far: an optional TypeScript side, automated template updates, and a substantial pass over how the template verifies itself.
