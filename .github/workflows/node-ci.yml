@@ -31,6 +31,15 @@ on:
         description: One of yarn, npm, or pnpm.
         type: string
         default: yarn
+      lfs:
+        description: >
+          Fetch Git LFS objects during checkout. Off by default: LFS pulls cost
+          bandwidth against the account quota on every run. Turn it on for a
+          repo whose tests read LFS-tracked fixtures — without it they get the
+          pointer files, and fail with whatever the reading library says about
+          malformed input rather than anything about LFS.
+        type: boolean
+        default: false
       run-build:
         description: Run the build script after type-checking.
         type: boolean
@@ -52,6 +61,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          lfs: ${{ inputs.lfs }}
 
       # Honours the `packageManager` field in package.json, which is how Yarn
       # Berry and pnpm pin themselves.

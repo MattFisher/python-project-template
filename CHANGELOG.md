@@ -14,6 +14,10 @@ Entries for 1.0.0 through 1.5.2 were backfilled from git history after the fact,
 
 ## [Unreleased]
 
+### Added
+
+- `python-ci.yml` and `node-ci.yml` take an `lfs` input, passed through to `actions/checkout`. It defaults to `false`, because an LFS pull costs bandwidth against the account quota on every run and most projects have nothing in LFS. Turn it on for a repo whose tests read LFS-tracked fixtures: without it the checkout produces pointer files, and the failure surfaces as whatever the reading library says about malformed input — `FzErrorFormat: no objects found` from PyMuPDF, in the case that prompted this — with nothing anywhere in the output mentioning LFS.
+
 ### Fixed
 
 - The scaffolded typos hook skips `.copier-answers.yml`. The file is generated, and its `_commit` is whatever ref the last update used — when that is a short SHA rather than a tag, its leading hex characters are a coin flip away from a word typos reads as misspelled, and `ba338ef` duly tripped `ba` → `by`, `be`. Nothing in the file is prose, so checking it could only ever produce false positives, on a schedule nobody controls.
